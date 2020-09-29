@@ -1,6 +1,7 @@
-from k_b0_util import get_df_by_filter_bp
-from na_seq import sequences
-from spring import Spring
+from enmspring.k_b0_util import get_df_by_filter_bp
+from enmspring.na_seq import sequences
+from enmspring.spring import Spring
+import MDAnalysis as mda
 
 atomname_map = {'A': {'type1': 'N6', 'type2': 'N1'}, 
                 'T': {'type1': 'O4', 'type2': 'N3'},
@@ -83,4 +84,69 @@ class BasePair:
             else:
                 d_result[typename] = df2['k'].iloc[0]
         return d_result
+
+
+class HBPainter:
+
+    complementary = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G'}
+    d_typelist = {'A': ['type1', 'type2'],
+                  'T': ['type1', 'type2'],
+                  'G': ['type1', 'type2', 'type3'],
+                  'C': ['type1', 'type2', 'type3']}
+    d_color = {'A': {'type1': 27, 'type2': 10},
+               'T': {'type1': 27, 'type2': 10},
+               'G': {'type1': 0, 'type2': 3, 'type3': 7},
+               'C': {'type1': 0, 'type2': 3, 'type3': 7}}
+    n_bp = 21
+    width = 5
+    
+    def __init__(self, host, gro, f_out, mol_id):
+        self.host = host
+        self.gro = gro
+        self.seq_guide = sequences[host]['guide']
+        self.f_out = f_out
+        self.mol_id = mol_id
+
+        self.u = mda.Universe(gro, gro)
+
+    def main(self):
+        f = open(self.f_out, 'w')
+        vmdlines = self.get_vmdlines()
+        for line in vmdlines:
+            f.write(line)
+        f.close()
+        print(f'Write draw codes into {self.f_out}')
+
+    def get_vmdlines(self):
+        vmdlines = list()
+        for idx, resname_i in enumerate(self.seq_guide):
+            resid_i = idx + 1
+            resid_j = self.get_resid_j(resid_i)
+            resname_j = self.complementary[resname_i]
+            typelist = self.d_typelist[resname_i]
+            for hb_type in typelist:
+                name_i = atomname_map[resname_i][hb_type]
+                name_j = atomname_map[resname_j][hb_type]
+                vmdlines.append(self.get_color_line(resname_i, hb_type))
+                vmdlines.append(self.get_line(resid_i, resid_j, name_i, name_j))
+        return vmdlines
+
+    def get_resid_j(self, resid_i):
+        return (2 * self.n_bp + 1) - resid_i
+
+    def get_color_line(self, resname, hb_type):
+        colorid = self.d_color[resname][hb_type]
+        return f'graphics {self.mol_id} color {colorid}\n'
+
+    def get_line(self, resid_i, resid_j, name_i, name_j):
+        pos_str_i = self.get_position_str(resid_i, name_i)
+        pos_str_j = self.get_position_str(resid_j, name_j)
+        return f'graphics {self.mol_id} line {pos_str_i} {pos_str_j} width {self.width}\n'
+
+    def get_position_str(self, resid, name):
+        atom_select = self.u.select_atoms(f'resid {resid} and name {name}')
+        if atom_select.n_atoms != 1:
+            raise InputException('Something wrong with the input gro.')
+        position = atom_select.positions[0]
+        return '{' + f'{position[0]:.3f} {position[1]:.3f} {position[2]:.3f}' + '}'
 

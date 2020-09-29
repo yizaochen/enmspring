@@ -1,9 +1,9 @@
 from os import path
 import pandas as pd
 import MDAnalysis
-import ic_table
-import pairtype
-from miscell import check_dir_exist_and_make
+from enmspring import ic_table
+from enmspring import pairtype
+from enmspring.miscell import check_dir_exist_and_make
 
 class Spring:
     col_names = ['PairID', 'PairType', 'Big_Category', 'Strand_i', 'Resid_i',  
