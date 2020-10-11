@@ -1,3 +1,4 @@
 MDAnalysis
 matplotlib
 pandas
+scipy

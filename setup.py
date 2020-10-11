@@ -9,6 +9,7 @@ setup(name='enmspring',
       install_requires=[
           'MDAnalysis',
           'matplotlib',
-          'pandas'
+          'pandas',
+          'scipy'
       ]
       )

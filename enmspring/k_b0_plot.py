@@ -1,6 +1,11 @@
+from os import path
 import matplotlib.pyplot as plt
-from spring import Spring
-import k_b0_util
+import numpy as np
+from scipy import stats
+from enmspring.spring import Spring
+from enmspring import k_b0_util
+
+plt.rcParams['font.family'] = 'sans-serif'
 
 class ScatterPlot:
     hosts = ['a_tract_21mer', 'ctct_21mer', 'gcgc_21mer',
@@ -188,6 +193,97 @@ class BoxPlot:
                 idx += 1
         return d_axes
 
+class CorrelationPlot:
+    hosts = ['a_tract_21mer', 'ctct_21mer', 'gcgc_21mer',
+             'g_tract_21mer', 'atat_21mer', 'tgtg_21mer']
+    abbr_hosts = {'a_tract_21mer': 'A-tract', 'ctct_21mer': 'CTCT', 'gcgc_21mer': 'GCGC',
+                  'g_tract_21mer': 'G-tract', 'atat_21mer': 'ATAT', 'tgtg_21mer': 'TGTG'}    
+    subcategories = ['PP0', 'PP1', 'PP2', 'PP3', 
+                         'R0', 'R1', 'RB0', 'RB1', 'RB2', 'RB3', 'PB', 
+                         'st', 'hb', 'bp1', 'bp2']
+    n_bp = 21
+    type_na = 'bdna+bdna'
+    
+    def __init__(self, rootfolder, cutoff, corre_type):
+        self.rootfolder = rootfolder
+        self.metadata_folder = path.join(rootfolder, 'metadata')
+        self.cutoff = cutoff
+        self.d_df = self.__initialize_df()
+        self.corre_type = corre_type  # 'mean' or 'median'
+
+    def plot_single_one_curve(self, ax, pairtype_x, pairtype_y):
+        x = np.array(self.get_statistics(pairtype_x))
+        y = np.array(self.get_statistics(pairtype_y))
+
+        coefs = stats.linregress(x, y)
+        slope = coefs[0]
+        intercept = coefs[1]
+        rvalue = coefs[2]
+        ax.plot(x, y, 'o', label='original data')
+        ax.plot(x, intercept + slope * x, 'r', label=f'fitted line $R={rvalue:.3f}$')
+        ax.legend()
+        ax.set_xlabel(f'k of {pairtype_x}')
+        ax.set_ylabel(f'k of {pairtype_y}')
+        ax.set_title(f'{self.corre_type} of 6 systems')
+        for i, host in enumerate(self.hosts):
+            txt = self.abbr_hosts[host]
+            ax.text(x[i], y[i], txt, fontsize=12)
+
+    def heatmap_pearson_coefficient(self, ax, cmap='bwr', lbfz=14, textfz=14, textcolor='black'):
+        heatmap_array = self.read_heatmap_array()
+        im = ax.imshow(heatmap_array, cmap=cmap)
+        # We want to show all ticks...
+        ax.set_xticks(np.arange(len(self.subcategories)))
+        ax.set_yticks(np.arange(len(self.subcategories)))
+        # ... and label them with the respective list entries
+        ax.set_xticklabels(self.subcategories, fontsize=lbfz)
+        ax.set_yticklabels(self.subcategories, fontsize=lbfz)
+        # Rotate the tick labels and set their alignment.
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+        # Loop over data dimensions and create text annotations
+        for i in range(len(self.subcategories)):
+            for j in range(len(self.subcategories)):
+                value = heatmap_array[i, j]
+                value = f'{value:.2f}'
+                ax.text(j, i, value, ha="center", va="center", color=textcolor, fontsize=textfz)
+        return im
+
+    def write_heatmap_array(self):
+        results = list()
+        for subcategory1 in self.subcategories:
+            temp = list()
+            for subcategory2 in self.subcategories:
+                x = np.array(self.get_statistics(subcategory1))
+                y = np.array(self.get_statistics(subcategory2))
+                coefs = stats.linregress(x, y)
+                rvalue = coefs[2]
+                temp.append(rvalue)
+            results.append(temp)
+        f_out = path.join(self.metadata_folder, 'heatmap_array.npy')
+        np.save(f_out, results)
+        print(f'Write Heatmap array to {f_out}')
+        return np.array(results)
+
+    def read_heatmap_array(self):
+        f_in = path.join(self.metadata_folder, 'heatmap_array.npy')
+        results = np.load(f_in)
+        print(f'Read Heatmap array from {f_in}')
+        return results
+        
+    def get_statistics(self, subcategory):
+        key = 'k'
+        category = k_b0_util.subcategory_reverse[subcategory]
+        results = list()
+        for host in self.hosts:
+            df = self.d_df[host]
+            k_b0_dict = k_b0_util.get_k_b0_mean_std_by_category(df, category)
+            result = k_b0_dict[subcategory][key]
+            if self.corre_type == 'mean':
+                results.append(np.mean(result))
+            elif self.corre_type == 'median':
+                results.append(np.median(result))
+        return results
+
     def __initialize_df(self):
         d_temp = dict()
         for host in self.hosts:
@@ -195,4 +291,3 @@ class BoxPlot:
             df0 = spring_obj.read_k_b0_pairtype_df_given_cutoff(self.cutoff)
             d_temp[host] = k_b0_util.get_central_bps_df(df0)
         return d_temp
-

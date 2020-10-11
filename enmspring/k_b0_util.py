@@ -11,6 +11,12 @@ category_dict = {'PP': ['PP0', 'PP1', 'PP2', 'PP3'],
                  'RB': ['RB0', 'RB1', 'RB2', 'RB3'],
                  'bp': ['hb', 'bp1', 'bp2']
                 }
+subcategory_reverse = {'PP0': 'PP', 'PP1': 'PP', 'PP2': 'PP', 'PP3': 'PP',
+                       'PB': 'PB', 'RR': 'PB',
+                       'R0': 'R', 'R1': 'R', 'R2': 'R',
+                       'RB0': 'RB', 'RB1': 'RB', 'RB2': 'RB', 'RB3': 'RB',
+                       'st': 'st',
+                       'hb': 'bp', 'bp1': 'bp', 'bp2': 'bp'}
 color_dict = {'PP': {'PP0': 'red', 'PP1': 'green', 'PP2': 'blue', 'PP3': 'magenta'},
               'st': {'st': 'red'},
               'PB': {'PB': 'orange', 'RR': 'cyan'},
