@@ -1,10 +1,11 @@
+import pandas as pd
 from enmspring.k_b0_util import get_df_by_filter_bp
 from enmspring.na_seq import sequences
 from enmspring.spring import Spring
 import MDAnalysis as mda
 
-atomname_map = {'A': {'type1': 'N6', 'type2': 'N1'}, 
-                'T': {'type1': 'O4', 'type2': 'N3'},
+atomname_map = {'A': {'type1': 'N6', 'type2': 'N1', 'type3': 'C2'}, 
+                'T': {'type1': 'O4', 'type2': 'N3', 'type3': 'O2'},
                 'C': {'type1': 'N4', 'type2': 'N3', 'type3': 'O2'},
                 'G': {'type1': 'O6', 'type2': 'N1', 'type3': 'N2'}}
 
@@ -36,7 +37,35 @@ class HBAgent:
     def __read_df_hb(self):
         spring_obj = Spring(self.rootfolder, self.host, self.type_na, self.n_bp)
         df = spring_obj.read_k_b0_pairtype_df_given_cutoff(self.cutoff)
-        return get_df_by_filter_bp(df, 'hb')
+        df1 = get_df_by_filter_bp(df, 'hb')
+        df2 = self.__read_df_at_type3()
+        if len(df2) == 0:
+            return df1
+        else:
+            df3 = pd.concat([df1,df2])
+            df3 = df3.sort_values(by=['Resid_i'])
+            df3 = df3.reset_index()
+            return df3
+
+    def __read_df_at_type3(self):
+        spring_obj = Spring(self.rootfolder, self.host, self.type_na, self.n_bp)
+        df0 = spring_obj.read_k_b0_pairtype_df_given_cutoff(self.cutoff)
+        df1 = get_df_by_filter_bp(df0, 'bp1')
+        df2_1 = self.__filter_C2_O2(df1)
+        df2_2 = self.__filter_O2_C2(df1)
+        return pd.concat([df2_1, df2_2])
+
+    def __filter_C2_O2(self, df):
+        mask0 = (df['Atomname_i'] == 'C2')
+        df0 = df[mask0]
+        mask1 = (df0['Atomname_j'] == 'O2')
+        return df0[mask1]
+
+    def __filter_O2_C2(self, df):
+        mask0 = (df['Atomname_i'] == 'O2')
+        df0 = df[mask0]
+        mask1 = (df0['Atomname_j'] == 'C2')
+        return df0[mask1]
 
     def get_resid_klist_by_type(self, bptype, typename):
         resid_list = list()
@@ -65,7 +94,7 @@ class BasePair:
 
     def get_k_dict(self, df):
         if self.bp_type == 'AT':
-            typelist = ['type1', 'type2']
+            typelist = ['type1', 'type2', 'type3']
             return self.get_k_by_df(df, typelist)
         else:
             typelist = ['type1', 'type2', 'type3']
