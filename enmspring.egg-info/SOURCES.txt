@@ -11,6 +11,7 @@ enmspring/miscell.py
 enmspring/na_seq.py
 enmspring/pairtype.py
 enmspring/spring.py
+enmspring/stack_util.py
 enmspring.egg-info/PKG-INFO
 enmspring.egg-info/SOURCES.txt
 enmspring.egg-info/dependency_links.txt
