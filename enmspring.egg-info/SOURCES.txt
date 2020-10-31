@@ -2,7 +2,9 @@ README.md
 setup.py
 enmspring/__init__.py
 enmspring/atompair.py
+enmspring/fig1.py
 enmspring/fluctpair.py
+enmspring/graphs.py
 enmspring/hb_util.py
 enmspring/ic_table.py
 enmspring/k_b0_plot.py
