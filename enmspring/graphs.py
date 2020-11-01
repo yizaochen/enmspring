@@ -2,6 +2,7 @@ from os import path
 from shutil import copyfile
 import numpy as np
 import MDAnalysis
+import matplotlib.pyplot as plt
 from enmspring import pairtype
 from enmspring.spring import Spring
 from enmspring.k_b0_util import get_df_by_filter_st
@@ -33,6 +34,9 @@ class GraphAgent:
         self.adjacency_mat, self.degree_mat, self.laplacian_mat = self.__initialize_three_mat()
         self.df_st = self.__read_df_st()
 
+        self.w = None  # Eigenvalue array
+        self.v = None  # Eigenvector matrix, the i-th column is the i-th eigenvector
+
     def build_node_list_base(self):
         node_list = list()
         d_idx = dict()
@@ -62,12 +66,25 @@ class GraphAgent:
         self.laplacian_mat = self.degree_mat + self.adjacency_mat
         print("Finish the setup for Laplaican matrix.")
 
+    def eigen_decompose(self):
+        w, v = np.linalg.eig(self.laplacian_mat)
+        idx = w.argsort()[::-1] # sort from big to small
+        self.w = w[idx]
+        self.v = v[:, idx]
+
+    def get_eigenvalue_by_id(self, sele_id):
+        return self.w[sele_id-1]
+
+    def get_eigenvector_by_id(self, sele_id):
+        return self.v[:,sele_id-1]
+
     def vmd_show_crd(self):
         print(f'vmd -cor {self.npt4_crd}')
 
     def write_show_base_nodes_tcl(self, tcl_out, colorid=0, vdw_radius=1.0):
         serials_str = self.__get_serial_base_nodes()
         f = open(tcl_out, 'w')
+        f.write('display resize 362 954\n\n')
         f.write('mol color ColorID 6\n')
         f.write('mol representation Lines 3.000\n')
         f.write('mol selection all\n')
@@ -76,6 +93,11 @@ class GraphAgent:
         f.write(f'mol color ColorID {colorid}\n')
         f.write(f'mol representation VDW {vdw_radius:.3f} 12.000\n')
         f.write(f'mol selection serial {serials_str}\n')
+        f.write('mol material Opaque\n')
+        f.write('mol addrep 0\n')
+        f.write(f'mol color ColorID 7\n')
+        f.write(f'mol representation VDW 0.300 12.000\n')
+        f.write(f'mol selection serial 6 7 8 9\n')
         f.write('mol material Opaque\n')
         f.write('mol addrep 0\n')
         f.close()
@@ -182,3 +204,33 @@ class GraphAgent:
         
     def __get_selection(self, atom):
         return 'segid {0} and resid {1} and name {2}'.format(atom.segid, atom.resid, atom.name)
+
+class EigenvaluePlot:
+
+    def __init__(self, rootfolder):
+        self.rootfolder = rootfolder
+        self.d_agent = dict()
+        self.d_eigenvalues = dict()
+
+    def initailize_six_systems(self):
+        for host in hosts:
+            g_agent = GraphAgent(host, self.rootfolder)
+            g_agent.build_node_list_base()
+            g_agent.build_adjacency_from_df_st()
+            g_agent.build_degree_from_adjacency()
+            g_agent.build_laplacian_by_adjacency_degree()
+            g_agent.eigen_decompose()
+            self.d_agent[host] = g_agent
+    
+    def plot_main(self, figsize):
+        fig, ax = plt.subplots(figsize=figsize)
+        for host in hosts:
+            agent = self.d_agent[host]
+            x = range(1, agent.n_node+1)
+            y = agent.w
+            ax.plot(x, y, '-o', label=host)
+        ax.legend()
+        ax.set_xlabel("Mode ID")
+        ax.set_ylabel("Eigenvalue")
+        return fig, ax
+        
