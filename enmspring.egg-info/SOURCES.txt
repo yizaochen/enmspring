@@ -1,6 +1,8 @@
 README.md
 setup.py
+enmspring/PDB.py
 enmspring/__init__.py
+enmspring/atom.py
 enmspring/atompair.py
 enmspring/fluctpair.py
 enmspring/graphs.py

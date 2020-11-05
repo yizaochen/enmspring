@@ -36,6 +36,9 @@ class GraphAgent:
 
         self.w = None  # Eigenvalue array
         self.v = None  # Eigenvector matrix, the i-th column is the i-th eigenvector
+        self.strand1_array = list() # 0: STRAND1, 1: STRAND2
+        self.strand2_array = list() #
+        self.strand1_benchmark, self.strand2_benchmark = self.__get_benchmark_array_basestack()
 
     def build_node_list_base(self):
         node_list = list()
@@ -124,6 +127,38 @@ class GraphAgent:
         print(f'Write tcl to {tcl_out}')
         print(f'source {tcl_out}')
 
+    def decide_eigenvector_strand_basestack(self, eigv_id):
+        eigv = self.get_eigenvector_by_id(eigv_id)
+        dot_product = np.dot(eigv, self.strand1_benchmark)
+        if np.isclose(dot_product, 0.):
+            return True #'STRAND2'
+        else:
+            return False #'STRAND1'
+
+    def set_strand_array(self):
+        for eigv_id in range(1, self.n_node+1):
+            if self.decide_eigenvector_strand_basestack(eigv_id):
+                self.strand2_array.append(eigv_id)
+            else:
+                self.strand1_array.append(eigv_id)
+        print(f'Total number of nodes: {self.n_node}')
+        print(f'There are {len(self.strand1_array)} eigenvectors belonging to STRAND1.')
+        print(f'There are {len(self.strand2_array)} eigenvectors belonging to STRAND2.')
+        print(f'Sum of two strands: {len(self.strand1_array)+len(self.strand2_array)}')
+
+    def get_lambda_by_strand(self, strandid):
+        if strandid == 'STRAND1':
+            return [self.get_eigenvalue_by_id(eigv_id) for eigv_id in self.strand1_array]
+        else:
+            return [self.get_eigenvalue_by_id(eigv_id) for eigv_id in self.strand2_array]
+
+    def get_eigvector_by_strand(self, strandid, sele_id):
+        if strandid == 'STRAND1':
+            real_eigv_id = self.strand1_array[sele_id]
+        else:
+            real_eigv_id = self.strand2_array[sele_id]
+        return self.get_eigenvector_by_id(real_eigv_id), self.get_eigenvalue_by_id(real_eigv_id)
+
     def __initialize_three_mat(self):
         adjacency_mat = np.zeros((self.n_node, self.n_node))
         degree_mat = np.zeros((self.n_node, self.n_node))
@@ -154,6 +189,14 @@ class GraphAgent:
         str_4 = '} '
         str_5 = f'radius {radius:.2f}\n'
         return str_0 + str_1 + str_2 + str_3 + str_4 + str_5
+
+    def __get_benchmark_array_basestack(self):
+        idx_start_strand2 = self.d_idx['B6']
+        strand1 = np.zeros(self.n_node)
+        strand2 = np.zeros(self.n_node)
+        strand1[:idx_start_strand2] = 1.
+        strand2[idx_start_strand2:] = 1.
+        return strand1, strand2
         
     def __build_map(self):
         d1 = dict()  # key: selction, value: cgname
@@ -205,7 +248,17 @@ class GraphAgent:
     def __get_selection(self, atom):
         return 'segid {0} and resid {1} and name {2}'.format(atom.segid, atom.resid, atom.name)
 
-class EigenvaluePlot:
+class EigenPlot:
+    d_groups = {0: ('a_tract_21mer', 'g_tract_21mer'),
+                1: ('atat_21mer', 'gcgc_21mer'),
+                2: ('ctct_21mer', 'tgtg_21mer')}
+    d_colors = {'a_tract_21mer': 'b', 'g_tract_21mer': 'r',
+                'atat_21mer': 'g', 'gcgc_21mer': 'orange',
+                'ctct_21mer': 'c', 'tgtg_21mer': 'm'}
+    d_labels = {'a_tract_21mer': ('A-Tract: (AA)', 'A-Tract: (TT)'), 'g_tract_21mer': ('G-Tract: (GG)', 'G-Tract: (CC)'),
+                'atat_21mer': ('AT: (AT)', 'AT: (AT)'), 'gcgc_21mer':  ('GC: (GC)', 'GC: (GC)'),
+                'ctct_21mer':  ('CT: (CT)', 'CT: (GA)'), 'tgtg_21mer': ('TG: (TG)', 'TG: (AC)')}
+    strandids = ['STRAND1', 'STRAND2']
 
     def __init__(self, rootfolder):
         self.rootfolder = rootfolder
@@ -220,9 +273,10 @@ class EigenvaluePlot:
             g_agent.build_degree_from_adjacency()
             g_agent.build_laplacian_by_adjacency_degree()
             g_agent.eigen_decompose()
+            g_agent.set_strand_array()
             self.d_agent[host] = g_agent
     
-    def plot_main(self, figsize):
+    def plot_lambda_six_together(self, figsize):
         fig, ax = plt.subplots(figsize=figsize)
         for host in hosts:
             agent = self.d_agent[host]
@@ -233,4 +287,112 @@ class EigenvaluePlot:
         ax.set_xlabel("Mode ID")
         ax.set_ylabel("Eigenvalue")
         return fig, ax
+
+    def plot_lambda_separate_strand(self, figsize):
+        ncols = 3
+        fig, axes = plt.subplots(nrows=1, ncols=ncols, figsize=figsize, sharey=True)
+        for ax_id in range(ncols):
+            ax = axes[ax_id]
+            host1 = self.d_groups[ax_id][0]
+            host2 = self.d_groups[ax_id][1]
+            self.__ax_plot_lambda(ax, host1)
+            self.__ax_plot_lambda(ax, host2)
+            self.__ax_plot_assistline(ax)
+            ax.legend(frameon=False)
+            ax.set_xlabel("Eigenvalue ID")
+            if ax_id == 0:
+                ax.set_ylabel("Eigenvalue")
+        return fig, ax
+
+    def __ax_plot_lambda(self, ax, host):
+        x1, y1, x2, y2 = self.__get_lambda_array_by_host(host)
+        ax.plot(x1, y1, ls='-', color=self.d_colors[host], alpha=0.7, label=self.d_labels[host][0])
+        ax.plot(x2, y2, ls='-.', color=self.d_colors[host], alpha=0.7, label=self.d_labels[host][1])
+
+    def __ax_plot_assistline(self, ax):
+        for y in [0, 5, 10, 15, 20]:
+            ax.axhline(y, color='grey',alpha=0.15)
+
+    def __get_lambda_array_by_host(self, host):
+        y1 = self.d_agent[host].get_lambda_by_strand('STRAND1')
+        y2 = self.d_agent[host].get_lambda_by_strand('STRAND2')
+        x1 = range(1, len(y1)+1)
+        x2 = range(1, len(y2)+1)
+        return x1, y1, x2, y2
         
+    def plot_eigenvector(self, figsize, hspace, wspace, eigv_id_list, lw):
+        fig = plt.figure(figsize=figsize)
+        gs = fig.add_gridspec(6, 6, hspace=hspace, wspace=wspace)
+        d_axes = self.__get_d_axes(fig, gs)
+        for col_id, host in enumerate(hosts):
+            g_agent = self.d_agent[host]
+            x = range(1, g_agent.n_node+1)
+            for row_id, eigv_id in enumerate(eigv_id_list):
+                ax = d_axes[host][row_id]
+                eigvalue = g_agent.get_eigenvalue_by_id(eigv_id)
+                y = g_agent.get_eigenvector_by_id(eigv_id)
+                ax.vlines(x, 0, y, colors='b', lw=lw)
+                ax.set_xlim(1, g_agent.n_node+1)
+                if col_id == 0:
+                    ax.set_ylabel(r'$e_{' + f'{eigv_id}' +r'}$', fontsize=16)
+
+                if row_id == 0:
+                    title = f'{host} ' + r'$\lambda_{' + f'{eigv_id}' + r'}=$' + f'{eigvalue:.2f}'
+                else:
+                    title = r'$\lambda_{' + f'{eigv_id}' + r'}=$' + f'{eigvalue:.2f}'
+                ax.set_title(title, fontsize=10)
+
+                if row_id == 5:
+                    ax.set_xlabel('CG-bead ID')
+                else:
+                    ax.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
+        return fig, d_axes
+
+    def plot_eigenvector_separate_strand(self, figsize, hspace, wspace, groupid, lw):
+        fig = plt.figure(figsize=figsize)
+        gs = fig.add_gridspec(5, 4, hspace=hspace, wspace=wspace)
+        d_axes = self.__get_d_axes_by_groupid(fig, gs, groupid)
+        col_id = 0
+        for host in self.d_groups[groupid]:
+            g_agent = self.d_agent[host]
+            x = range(1, g_agent.n_node+1)
+            for strand_id_int, strand_id in enumerate(self.strandids):
+                for row_id in range(5):
+                    ax = d_axes[host][strand_id][row_id]
+                    y, eigvalue = self.__get_eigv_array_by_host(host, row_id, strand_id)
+                    ax.vlines(x, 0, y, colors='b', lw=lw)
+                    ax.set_xlim(1, g_agent.n_node+1)
+                    title = self.d_labels[host][strand_id_int] + r'  $\lambda=$' + f'{eigvalue:.2f}'
+                    ax.set_title(title, fontsize=12)
+                    if col_id == 0:
+                        ax.set_ylabel('Eigenvector', fontsize=12)
+                    if row_id == 4:
+                        ax.set_xlabel('CG-bead ID')
+                    else:
+                        ax.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
+                col_id += 1
+        gs.tight_layout(fig)     
+        return fig, d_axes
+
+    def __get_d_axes(self, fig, gs):
+        d_axes = {host: list() for host in hosts}
+        for row_id in range(6):
+            for col_id, host in enumerate(hosts):
+                d_axes[host].append(fig.add_subplot(gs[row_id,col_id]))
+        return d_axes
+
+    def __get_d_axes_by_groupid(self, fig, gs, groupid):
+        d_axes = dict()
+        col_id = 0
+        for host in self.d_groups[groupid]:
+            d_axes[host] = dict()
+            for strand_id in self.strandids:
+                d_axes[host][strand_id] = list()
+                for row_id in range(5):
+                    d_axes[host][strand_id].append(fig.add_subplot(gs[row_id,col_id]))
+                col_id += 1
+        return d_axes
+
+    def __get_eigv_array_by_host(self, host, sele_id, strandid):
+        return self.d_agent[host].get_eigvector_by_strand(strandid, sele_id)
+                
