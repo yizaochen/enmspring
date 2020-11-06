@@ -17,6 +17,7 @@ class InputException(Exception):
 class HBAgent:
     cutoff = 4.7
     type_na = 'bdna+bdna'
+    d_atcg = {'A': 'T', 'T': 'A', 'C': 'G', 'G': 'C'}
 
     def __init__(self, host, rootfolder, n_bp):
         self.rootfolder = rootfolder
@@ -94,7 +95,36 @@ class HBAgent:
             basepair = self.basepairs[resid]
             if basepair.bp_type == bptype:
                 k_list.append(basepair.k_dict[typename])
-        return k_list 
+        return k_list
+
+    def get_d_hb_contain_atomid_k_all_basepair(self):
+        typelist = ['type1', 'type2', 'type3']
+        d_hb_new = {'Atomid_i': list(), 'Atomid_j': list(), 'k': list()}
+        for resid_i in range(1, self.n_bp+1):
+            mask = self.df_hb['Resid_i'] == resid_i
+            df1 = self.df_hb[mask]
+            for typename in typelist:
+                atomname_i, atomname_j = self.__get_atomname_ij(resid_i, typename)
+                mask = (df1['Atomname_i'] == atomname_i) & (df1['Atomname_j'] == atomname_j)
+                df2 = df1[mask]
+                if len(df2) == 0:
+                    continue
+                else:
+                    d_hb_new = self.__process_d_hb_new(d_hb_new, df2)
+        return d_hb_new
+
+    def __get_atomname_ij(self, resid_i, typename):
+        resname_i = self.seq_guide[resid_i-1]
+        resname_j = self.d_atcg[resname_i]
+        atomname_i = atomname_map[resname_i][typename]
+        atomname_j = atomname_map[resname_j][typename]
+        return atomname_i, atomname_j
+
+    def __process_d_hb_new(self, d_hb_new, df_sele):
+        d_hb_new['Atomid_i'].append(df_sele['Atomid_i'].iloc[0])
+        d_hb_new['Atomid_j'].append(df_sele['Atomid_j'].iloc[0])
+        d_hb_new['k'].append(df_sele['k'].iloc[0])
+        return d_hb_new
 
 class BasePair:
     def __init__(self, resname_i, resid_i, df):
@@ -103,6 +133,7 @@ class BasePair:
         self.resid_i = resid_i
         self.bp_type = self.determine_bptype(resname_i) # AT or GC
         self.k_dict = self.get_k_dict(df)
+        self.df = df
 
     def determine_bptype(self, resname):
         if resname in ['A', 'T']:
@@ -136,7 +167,6 @@ class BasePair:
             else:
                 d_result[typename] = df3['k'].iloc[0]
         return d_result
-
 
 class HBSixPlot:
     hosts = ['a_tract_21mer', 'gcgc_21mer', 'tgtg_21mer',

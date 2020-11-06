@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from enmspring import pairtype
 from enmspring.spring import Spring
 from enmspring.k_b0_util import get_df_by_filter_st
+from enmspring.hb_util import HBAgent
 
 hosts = ['a_tract_21mer', 'gcgc_21mer', 'tgtg_21mer',
          'atat_21mer', 'ctct_21mer', 'g_tract_21mer']
@@ -34,6 +35,8 @@ class GraphAgent:
         self.adjacency_mat, self.degree_mat, self.laplacian_mat = self.__initialize_three_mat()
         self.df_st = self.__read_df_st()
 
+        self.hb_agent = HBAgent(host, rootfolder, self.n_bp)
+
         self.w = None  # Eigenvalue array
         self.v = None  # Eigenvector matrix, the i-th column is the i-th eigenvector
         self.strand1_array = list() # 0: STRAND1, 1: STRAND2
@@ -58,6 +61,25 @@ class GraphAgent:
         k_list = self.df_st['k'].tolist()
         for idx_i, idx_j, k in zip(idx_i_list, idx_j_list, k_list):
             self.adjacency_mat[idx_i, idx_j] = k
+        i_lower = np.tril_indices(self.n_node, -1)
+        self.adjacency_mat[i_lower] = self.adjacency_mat.transpose()[i_lower]  # make the matrix symmetric
+
+    def build_adjacency_from_df_st_df_hb(self):
+        # For stack
+        idx_i_list = self.__get_idx_list(self.df_st['Atomid_i'])
+        idx_j_list = self.__get_idx_list(self.df_st['Atomid_j'])
+        k_list = self.df_st['k'].tolist()
+        for idx_i, idx_j, k in zip(idx_i_list, idx_j_list, k_list):
+            self.adjacency_mat[idx_i, idx_j] = k
+
+        # For HB
+        d_hb_new = self.hb_agent.get_d_hb_contain_atomid_k_all_basepair()
+        idx_i_list = self.__get_idx_list(d_hb_new['Atomid_i'])
+        idx_j_list = self.__get_idx_list(d_hb_new['Atomid_j'])
+        k_list = d_hb_new['k']
+        for idx_i, idx_j, k in zip(idx_i_list, idx_j_list, k_list):
+            self.adjacency_mat[idx_i, idx_j] = k
+
         i_lower = np.tril_indices(self.n_node, -1)
         self.adjacency_mat[i_lower] = self.adjacency_mat.transpose()[i_lower]  # make the matrix symmetric
 
@@ -118,6 +140,24 @@ class GraphAgent:
         u_npt4 = MDAnalysis.Universe(self.npt4_crd, self.npt4_crd)
         lines = ['graphics 0 color 1\n', 'graphics 0 material AOShiny\n']
         for atomid1, atomid2 in zip(self.df_st['Atomid_i'], self.df_st['Atomid_j']):
+            line = self.__get_draw_edge_line(u_npt4.atoms.positions, atomid1-1, atomid2-1, radius)
+            lines.append(line)
+        f = open(tcl_out, 'w')
+        for line in lines:
+            f.write(line)
+        f.close()
+        print(f'Write tcl to {tcl_out}')
+        print(f'source {tcl_out}')
+
+    def write_show_base_hb_edges_tcl(self, tcl_out, radius=0.05):
+        u_npt4 = MDAnalysis.Universe(self.npt4_crd, self.npt4_crd)
+        lines = ['graphics 0 color 1\n', 'graphics 0 material AOShiny\n']
+        for atomid1, atomid2 in zip(self.df_st['Atomid_i'], self.df_st['Atomid_j']):
+            line = self.__get_draw_edge_line(u_npt4.atoms.positions, atomid1-1, atomid2-1, radius)
+            lines.append(line)
+        lines.append('graphics 0 color 10\n')
+        d_hb_new = self.hb_agent.get_d_hb_contain_atomid_k_all_basepair()
+        for atomid1, atomid2 in zip(d_hb_new['Atomid_i'], d_hb_new['Atomid_j']):
             line = self.__get_draw_edge_line(u_npt4.atoms.positions, atomid1-1, atomid2-1, radius)
             lines.append(line)
         f = open(tcl_out, 'w')
@@ -260,16 +300,20 @@ class EigenPlot:
                 'ctct_21mer':  ('CT: (CT)', 'CT: (GA)'), 'tgtg_21mer': ('TG: (TG)', 'TG: (AC)')}
     strandids = ['STRAND1', 'STRAND2']
 
-    def __init__(self, rootfolder):
+    def __init__(self, rootfolder, hb_include=False):
         self.rootfolder = rootfolder
         self.d_agent = dict()
         self.d_eigenvalues = dict()
+        self.hb_include = hb_include
 
     def initailize_six_systems(self):
         for host in hosts:
             g_agent = GraphAgent(host, self.rootfolder)
             g_agent.build_node_list_base()
-            g_agent.build_adjacency_from_df_st()
+            if self.hb_include:
+                g_agent.build_adjacency_from_df_st_df_hb()
+            else:
+                g_agent.build_adjacency_from_df_st()
             g_agent.build_degree_from_adjacency()
             g_agent.build_laplacian_by_adjacency_degree()
             g_agent.eigen_decompose()
@@ -346,6 +390,7 @@ class EigenPlot:
                     ax.set_xlabel('CG-bead ID')
                 else:
                     ax.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
+        gs.tight_layout(fig)        
         return fig, d_axes
 
     def plot_eigenvector_separate_strand(self, figsize, hspace, wspace, groupid, lw):
