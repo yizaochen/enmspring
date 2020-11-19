@@ -5,7 +5,7 @@ import MDAnalysis
 import matplotlib.pyplot as plt
 from enmspring import pairtype
 from enmspring.spring import Spring
-from enmspring.k_b0_util import get_df_by_filter_st
+from enmspring.k_b0_util import get_df_by_filter_st, get_df_by_filter_PP, get_df_by_filter_R
 from enmspring.hb_util import HBAgent
 
 hosts = ['a_tract_21mer', 'gcgc_21mer', 'tgtg_21mer',
@@ -23,6 +23,9 @@ class GraphAgent:
         self.na_folder = path.join(self.host_folder, self.type_na)
         self.input_folder = path.join(self.na_folder, 'input')
 
+        self.spring_obj = Spring(self.rootfolder, self.host, self.type_na, self.n_bp)
+        self.df_all_k = self.spring_obj.read_k_b0_pairtype_df_given_cutoff(self.cutoff)
+
         self.crd = path.join(self.input_folder, '{0}.nohydrogen.avg.crd'.format(self.type_na))
         self.npt4_crd = path.join(self.input_folder, '{0}.nohydrogen.crd'.format(self.type_na))
         self.u = MDAnalysis.Universe(self.crd, self.crd)
@@ -30,20 +33,21 @@ class GraphAgent:
         self.atomid_map_inverse, self.atomname_map, self.strandid_map,\
         self.resid_map, self.mass_map = self.__build_map()
 
-        self.node_list, self.d_idx = self.build_node_list_base()
-        self.n_node = len(self.node_list)
-        self.adjacency_mat, self.degree_mat, self.laplacian_mat = self.__initialize_three_mat()
-        self.df_st = self.__read_df_st()
-
-        self.hb_agent = HBAgent(host, rootfolder, self.n_bp)
+        self.node_list = None
+        self.d_idx = None
+        self.n_node = None
+        self.adjacency_mat = None
+        self.degree_mat = None
+        self.laplacian_mat = None
 
         self.w = None  # Eigenvalue array
         self.v = None  # Eigenvector matrix, the i-th column is the i-th eigenvector
         self.strand1_array = list() # 0: STRAND1, 1: STRAND2
         self.strand2_array = list() #
-        self.strand1_benchmark, self.strand2_benchmark = self.__get_benchmark_array_basestack()
-
-    def build_node_list_base(self):
+        self.strand1_benchmark = None
+        self.strand2_benchmark = None
+        
+    def build_node_list(self):
         node_list = list()
         d_idx = dict()
         idx = 0
@@ -53,35 +57,16 @@ class GraphAgent:
                 node_list.append(cgname)
                 d_idx[cgname] = idx
                 idx += 1
-        return node_list, d_idx
+        self.node_list = node_list
+        self.d_idx = d_idx
+        self.n_node = len(self.node_list)
+        print(f"Thare are {self.n_node} nodes.")
 
-    def build_adjacency_from_df_st(self):
-        idx_i_list = self.__get_idx_list(self.df_st['Atomid_i'])
-        idx_j_list = self.__get_idx_list(self.df_st['Atomid_j'])
-        k_list = self.df_st['k'].tolist()
-        for idx_i, idx_j, k in zip(idx_i_list, idx_j_list, k_list):
-            self.adjacency_mat[idx_i, idx_j] = k
-        i_lower = np.tril_indices(self.n_node, -1)
-        self.adjacency_mat[i_lower] = self.adjacency_mat.transpose()[i_lower]  # make the matrix symmetric
-
-    def build_adjacency_from_df_st_df_hb(self):
-        # For stack
-        idx_i_list = self.__get_idx_list(self.df_st['Atomid_i'])
-        idx_j_list = self.__get_idx_list(self.df_st['Atomid_j'])
-        k_list = self.df_st['k'].tolist()
-        for idx_i, idx_j, k in zip(idx_i_list, idx_j_list, k_list):
-            self.adjacency_mat[idx_i, idx_j] = k
-
-        # For HB
-        d_hb_new = self.hb_agent.get_d_hb_contain_atomid_k_all_basepair()
-        idx_i_list = self.__get_idx_list(d_hb_new['Atomid_i'])
-        idx_j_list = self.__get_idx_list(d_hb_new['Atomid_j'])
-        k_list = d_hb_new['k']
-        for idx_i, idx_j, k in zip(idx_i_list, idx_j_list, k_list):
-            self.adjacency_mat[idx_i, idx_j] = k
-
-        i_lower = np.tril_indices(self.n_node, -1)
-        self.adjacency_mat[i_lower] = self.adjacency_mat.transpose()[i_lower]  # make the matrix symmetric
+    def initialize_three_mat(self):
+        self.adjacency_mat = np.zeros((self.n_node, self.n_node))
+        self.degree_mat = np.zeros((self.n_node, self.n_node))
+        self.laplacian_mat = np.zeros((self.n_node, self.n_node))
+        print('Initialize adjacency, degree and Laplacian matrices... Done.')
 
     def build_degree_from_adjacency(self):
         for idx in range(self.n_node):
@@ -106,68 +91,14 @@ class GraphAgent:
     def vmd_show_crd(self):
         print(f'vmd -cor {self.npt4_crd}')
 
-    def write_show_base_nodes_tcl(self, tcl_out, colorid=0, vdw_radius=1.0):
-        serials_str = self.__get_serial_base_nodes()
-        f = open(tcl_out, 'w')
-        f.write('display resize 362 954\n\n')
-        f.write('mol color ColorID 6\n')
-        f.write('mol representation Lines 3.000\n')
-        f.write('mol selection all\n')
-        f.write('mol material Opaque\n')
-        f.write('mol addrep 0\n')
-        f.write(f'mol color ColorID {colorid}\n')
-        f.write(f'mol representation VDW {vdw_radius:.3f} 12.000\n')
-        f.write(f'mol selection serial {serials_str}\n')
-        f.write('mol material Opaque\n')
-        f.write('mol addrep 0\n')
-        f.write(f'mol color ColorID 7\n')
-        f.write(f'mol representation VDW 0.300 12.000\n')
-        f.write(f'mol selection serial 6 7 8 9\n')
-        f.write('mol material Opaque\n')
-        f.write('mol addrep 0\n')
-        f.close()
-        print(f'Write tcl to {tcl_out}')
-        print(f'source {tcl_out}')
-
     def copy_nohydrogen_crd(self):
         allsys_root = '/home/yizaochen/codes/dna_rna/all_systems'
         srt = path.join(allsys_root, self.host, self.type_na, 'input', 'heavyatoms', f'{self.type_na}.nohydrogen.crd')
         dst = self.npt4_crd
         copyfile(srt, dst)
         print(f'cp {srt} {dst}')
-        
-    def write_show_base_edges_tcl(self, tcl_out, radius=0.05):
-        u_npt4 = MDAnalysis.Universe(self.npt4_crd, self.npt4_crd)
-        lines = ['graphics 0 color 1\n', 'graphics 0 material AOShiny\n']
-        for atomid1, atomid2 in zip(self.df_st['Atomid_i'], self.df_st['Atomid_j']):
-            line = self.__get_draw_edge_line(u_npt4.atoms.positions, atomid1-1, atomid2-1, radius)
-            lines.append(line)
-        f = open(tcl_out, 'w')
-        for line in lines:
-            f.write(line)
-        f.close()
-        print(f'Write tcl to {tcl_out}')
-        print(f'source {tcl_out}')
 
-    def write_show_base_hb_edges_tcl(self, tcl_out, radius=0.05):
-        u_npt4 = MDAnalysis.Universe(self.npt4_crd, self.npt4_crd)
-        lines = ['graphics 0 color 1\n', 'graphics 0 material AOShiny\n']
-        for atomid1, atomid2 in zip(self.df_st['Atomid_i'], self.df_st['Atomid_j']):
-            line = self.__get_draw_edge_line(u_npt4.atoms.positions, atomid1-1, atomid2-1, radius)
-            lines.append(line)
-        lines.append('graphics 0 color 10\n')
-        d_hb_new = self.hb_agent.get_d_hb_contain_atomid_k_all_basepair()
-        for atomid1, atomid2 in zip(d_hb_new['Atomid_i'], d_hb_new['Atomid_j']):
-            line = self.__get_draw_edge_line(u_npt4.atoms.positions, atomid1-1, atomid2-1, radius)
-            lines.append(line)
-        f = open(tcl_out, 'w')
-        for line in lines:
-            f.write(line)
-        f.close()
-        print(f'Write tcl to {tcl_out}')
-        print(f'source {tcl_out}')
-
-    def decide_eigenvector_strand_basestack(self, eigv_id):
+    def decide_eigenvector_strand(self, eigv_id):
         eigv = self.get_eigenvector_by_id(eigv_id)
         dot_product = np.dot(eigv, self.strand1_benchmark)
         if np.isclose(dot_product, 0.):
@@ -177,7 +108,7 @@ class GraphAgent:
 
     def set_strand_array(self):
         for eigv_id in range(1, self.n_node+1):
-            if self.decide_eigenvector_strand_basestack(eigv_id):
+            if self.decide_eigenvector_strand(eigv_id):
                 self.strand2_array.append(eigv_id)
             else:
                 self.strand1_array.append(eigv_id)
@@ -199,25 +130,67 @@ class GraphAgent:
             real_eigv_id = self.strand2_array[sele_id]
         return self.get_eigenvector_by_id(real_eigv_id), self.get_eigenvalue_by_id(real_eigv_id)
 
-    def __initialize_three_mat(self):
-        adjacency_mat = np.zeros((self.n_node, self.n_node))
-        degree_mat = np.zeros((self.n_node, self.n_node))
-        laplacian_mat = np.zeros((self.n_node, self.n_node))
-        return adjacency_mat, degree_mat, laplacian_mat
+    def set_adjacency_by_df(self, df_sele):
+        idx_i_list = self.__get_idx_list(df_sele['Atomid_i'])
+        idx_j_list = self.__get_idx_list(df_sele['Atomid_j'])
+        k_list = df_sele['k'].tolist()
+        for idx_i, idx_j, k in zip(idx_i_list, idx_j_list, k_list):
+            self.adjacency_mat[idx_i, idx_j] = k
 
-    def __read_df_st(self):
-        criteria = 1e-3
-        spring_obj = Spring(self.rootfolder, self.host, self.type_na, self.n_bp)
-        df = spring_obj.read_k_b0_pairtype_df_given_cutoff(self.cutoff)
-        df1 = get_df_by_filter_st(df, 'st')
-        mask = df1['k'] > criteria
-        return df1[mask]
+    def set_adjacency_by_d(self, d_sele):
+        idx_i_list = self.__get_idx_list(d_sele['Atomid_i'])
+        idx_j_list = self.__get_idx_list(d_sele['Atomid_j'])
+        k_list = d_sele['k']
+        for idx_i, idx_j, k in zip(idx_i_list, idx_j_list, k_list):
+            self.adjacency_mat[idx_i, idx_j] = k
+    
+    def make_adjacency_symmetry(self):
+        i_lower = np.tril_indices(self.n_node, -1)
+        self.adjacency_mat[i_lower] = self.adjacency_mat.transpose()[i_lower]  # make the matrix symmetric
 
+    def write_show_nodes_tcl(self, tcl_out, colorid=0, vdw_radius=1.0):
+        serials_str = self.__get_serial_nodes()
+        f = open(tcl_out, 'w')
+        f.write('display resize 362 954\n\n')
+        f.write('mol color ColorID 6\n')
+        f.write('mol representation Lines 3.000\n')
+        f.write('mol selection all\n')
+        f.write('mol material Opaque\n')
+        f.write('mol addrep 0\n')
+        f.write(f'mol color ColorID {colorid}\n')
+        f.write(f'mol representation VDW {vdw_radius:.3f} 12.000\n')
+        f.write(f'mol selection serial {serials_str}\n')
+        f.write('mol material Opaque\n')
+        f.write('mol addrep 0\n')
+        f.write(f'mol color ColorID 7\n')
+        f.write(f'mol representation VDW 0.300 12.000\n')
+        f.write(f'mol selection serial 6 7 8 9\n')
+        f.write('mol material Opaque\n')
+        f.write('mol addrep 0\n')
+        f.close()
+        print(f'Write tcl to {tcl_out}')
+        print(f'source {tcl_out}')
+
+    def process_lines_for_edges_tcl(self, lines, df_sele, radius=0.05):
+        u_npt4 = MDAnalysis.Universe(self.npt4_crd, self.npt4_crd)       
+        for atomid1, atomid2 in zip(df_sele['Atomid_i'], df_sele['Atomid_j']):
+            line = self.__get_draw_edge_line(u_npt4.atoms.positions, atomid1-1, atomid2-1, radius)
+            lines.append(line)
+        return lines
+
+    def write_lines_to_tcl_out(self, lines, tcl_out):
+        f = open(tcl_out, 'w')        
+        for line in lines:
+            f.write(line)
+        f.close()
+        print(f'Write tcl to {tcl_out}')
+        print(f'source {tcl_out}')
+        
     def __get_idx_list(self, df_column):
         cgname_list = [self.atomid_map_inverse[atomid] for atomid in df_column]
         return [self.d_idx[cgname] for cgname in cgname_list]
 
-    def __get_serial_base_nodes(self):
+    def __get_serial_nodes(self):
         serials_list = [str(self.atomid_map[cgname]) for cgname in self.d_idx.keys()]
         return ' '.join(serials_list)
 
@@ -229,15 +202,7 @@ class GraphAgent:
         str_4 = '} '
         str_5 = f'radius {radius:.2f}\n'
         return str_0 + str_1 + str_2 + str_3 + str_4 + str_5
-
-    def __get_benchmark_array_basestack(self):
-        idx_start_strand2 = self.d_idx['B6']
-        strand1 = np.zeros(self.n_node)
-        strand2 = np.zeros(self.n_node)
-        strand1[:idx_start_strand2] = 1.
-        strand2[idx_start_strand2:] = 1.
-        return strand1, strand2
-        
+       
     def __build_map(self):
         d1 = dict()  # key: selction, value: cgname
         d2 = dict()  # key: cgname,   value: selection
@@ -288,6 +253,113 @@ class GraphAgent:
     def __get_selection(self, atom):
         return 'segid {0} and resid {1} and name {2}'.format(atom.segid, atom.resid, atom.name)
 
+class Stack(GraphAgent):
+    def __init__(self, host, rootfolder):
+        super().__init__(host, rootfolder)
+        self.df_st = self.__read_df_st()
+
+    def build_adjacency_from_df_st(self):
+        self.set_adjacency_by_df(self.df_st)
+        self.make_adjacency_symmetry()
+
+    def set_benchmark_array(self):
+        idx_start_strand2 = self.d_idx['B6']
+        strand1 = np.zeros(self.n_node)
+        strand2 = np.zeros(self.n_node)
+        strand1[:idx_start_strand2] = 1.
+        strand2[idx_start_strand2:] = 1.
+        self.strand1_benchmark = strand1
+        self.strand2_benchmark = strand2
+
+    def write_show_base_edges_tcl(self, tcl_out, radius=0.05):
+        lines = ['graphics 0 color 1\n', 'graphics 0 material AOShiny\n']
+        lines = self.process_lines_for_edges_tcl(lines, self.df_st, radius=radius)
+        self.write_lines_to_tcl_out(lines, tcl_out)
+        
+    def __read_df_st(self):
+        criteria = 1e-3
+        df1 = get_df_by_filter_st(self.df_all_k, 'st')
+        mask = (df1['k'] > criteria)
+        print("Read Dataframe of stacking: df_st")
+        return df1[mask]
+
+class StackHB(Stack):
+    def __init__(self, host, rootfolder):
+        super().__init__(host, rootfolder)
+        self.hb_agent = HBAgent(host, rootfolder, self.n_bp)
+
+    def build_adjacency_from_df_st_df_hb(self):
+        self.set_adjacency_by_df(self.df_st)
+        d_hb_new = self.hb_agent.get_d_hb_contain_atomid_k_all_basepair()
+        self.set_adjacency_by_d(d_hb_new)         
+        self.make_adjacency_symmetry()
+
+    def write_show_base_hb_edges_tcl(self, tcl_out, radius=0.05):
+        lines = ['graphics 0 color 1\n', 'graphics 0 material AOShiny\n']
+        lines = self.process_lines_for_edges_tcl(lines, self.df_st, radius=radius)
+        lines += ['graphics 0 color 1\n', 'graphics 0 material AOShiny\n']
+        d_hb_new = self.hb_agent.get_d_hb_contain_atomid_k_all_basepair()
+        lines = self.process_lines_for_edges_tcl(lines, d_hb_new, radius=radius)
+        self.write_lines_to_tcl_out(lines, tcl_out)
+
+
+class onlyHB(StackHB):
+    def build_adjacency_from_df_hb(self):
+        d_hb_new = self.hb_agent.get_d_hb_contain_atomid_k_all_basepair()
+        self.set_adjacency_by_d(d_hb_new)         
+        self.make_adjacency_symmetry()
+
+    def write_show_base_hb_edges_tcl(self, tcl_out, radius=0.05):
+        lines = ['graphics 0 color 1\n', 'graphics 0 material AOShiny\n']
+        d_hb_new = self.hb_agent.get_d_hb_contain_atomid_k_all_basepair()
+        lines = self.process_lines_for_edges_tcl(lines, d_hb_new, radius=radius)
+        self.write_lines_to_tcl_out(lines, tcl_out)
+
+
+class BackboneRibose(GraphAgent):
+    def build_node_list(self):
+        node_list = list()
+        d_idx = dict()
+        idx = 0
+        for cgname, atomname in self.atomname_map.items():
+            atom_type = pairtype.d_atomcgtype[atomname]
+            if (atom_type == 'P') or (atom_type == 'S'):
+                node_list.append(cgname)
+                d_idx[cgname] = idx
+                idx += 1
+        self.node_list = node_list
+        self.d_idx = d_idx
+        self.n_node = len(self.node_list)
+        print(f"Thare are {self.n_node} nodes.")
+
+    def build_adjacency_from_pp_r(self):
+        for subcategory in ['PP0', 'PP1', 'PP2', 'PP3']:
+            df_sele = get_df_by_filter_PP(self.df_all_k, subcategory)
+            self.set_adjacency_by_df(df_sele)
+        for subcategory in ['R0', 'R1']:
+            df_sele = get_df_by_filter_R(self.df_all_k, subcategory)
+            self.set_adjacency_by_df(df_sele)
+        self.make_adjacency_symmetry()
+
+    def set_benchmark_array(self):
+        idx_start_strand2 = self.d_idx['B1']
+        strand1 = np.zeros(self.n_node)
+        strand2 = np.zeros(self.n_node)
+        strand1[:idx_start_strand2] = 1.
+        strand2[idx_start_strand2:] = 1.
+        self.strand1_benchmark = strand1
+        self.strand2_benchmark = strand2
+
+    def write_show_backbone_edges_tcl(self, tcl_out, radius=0.05):
+        lines = ['graphics 0 color 1\n', 'graphics 0 material AOShiny\n']
+        for subcategory in ['PP0', 'PP1', 'PP2', 'PP3']:
+            df_sele = get_df_by_filter_PP(self.df_all_k, subcategory)
+            lines = self.process_lines_for_edges_tcl(lines, df_sele, radius=radius)
+        for subcategory in ['R0', 'R1']:
+            df_sele = get_df_by_filter_R(self.df_all_k, subcategory)
+            lines = self.process_lines_for_edges_tcl(lines, df_sele, radius=radius)
+        self.write_lines_to_tcl_out(lines, tcl_out)
+
 class EigenPlot:
     d_groups = {0: ('a_tract_21mer', 'g_tract_21mer'),
                 1: ('atat_21mer', 'gcgc_21mer'),
@@ -300,26 +372,11 @@ class EigenPlot:
                 'ctct_21mer':  ('CT: (CT)', 'CT: (GA)'), 'tgtg_21mer': ('TG: (TG)', 'TG: (AC)')}
     strandids = ['STRAND1', 'STRAND2']
 
-    def __init__(self, rootfolder, hb_include=False):
+    def __init__(self, rootfolder):
         self.rootfolder = rootfolder
         self.d_agent = dict()
         self.d_eigenvalues = dict()
-        self.hb_include = hb_include
-
-    def initailize_six_systems(self):
-        for host in hosts:
-            g_agent = GraphAgent(host, self.rootfolder)
-            g_agent.build_node_list_base()
-            if self.hb_include:
-                g_agent.build_adjacency_from_df_st_df_hb()
-            else:
-                g_agent.build_adjacency_from_df_st()
-            g_agent.build_degree_from_adjacency()
-            g_agent.build_laplacian_by_adjacency_degree()
-            g_agent.eigen_decompose()
-            g_agent.set_strand_array()
-            self.d_agent[host] = g_agent
-    
+   
     def plot_lambda_six_together(self, figsize):
         fig, ax = plt.subplots(figsize=figsize)
         for host in hosts:
@@ -339,25 +396,25 @@ class EigenPlot:
             ax = axes[ax_id]
             host1 = self.d_groups[ax_id][0]
             host2 = self.d_groups[ax_id][1]
-            self.__ax_plot_lambda(ax, host1)
-            self.__ax_plot_lambda(ax, host2)
-            self.__ax_plot_assistline(ax)
+            self.ax_plot_lambda(ax, host1)
+            self.ax_plot_lambda(ax, host2)
+            self.ax_plot_assistline(ax)
             ax.legend(frameon=False)
             ax.set_xlabel("Eigenvalue ID")
             if ax_id == 0:
                 ax.set_ylabel("Eigenvalue")
         return fig, ax
 
-    def __ax_plot_lambda(self, ax, host):
-        x1, y1, x2, y2 = self.__get_lambda_array_by_host(host)
+    def ax_plot_lambda(self, ax, host):
+        x1, y1, x2, y2 = self.get_lambda_array_by_host(host)
         ax.plot(x1, y1, ls='-', color=self.d_colors[host], alpha=0.7, label=self.d_labels[host][0])
         ax.plot(x2, y2, ls='-.', color=self.d_colors[host], alpha=0.7, label=self.d_labels[host][1])
 
-    def __ax_plot_assistline(self, ax):
+    def ax_plot_assistline(self, ax):
         for y in [0, 5, 10, 15, 20]:
             ax.axhline(y, color='grey',alpha=0.15)
 
-    def __get_lambda_array_by_host(self, host):
+    def get_lambda_array_by_host(self, host):
         y1 = self.d_agent[host].get_lambda_by_strand('STRAND1')
         y2 = self.d_agent[host].get_lambda_by_strand('STRAND2')
         x1 = range(1, len(y1)+1)
@@ -440,4 +497,188 @@ class EigenPlot:
 
     def __get_eigv_array_by_host(self, host, sele_id, strandid):
         return self.d_agent[host].get_eigvector_by_strand(strandid, sele_id)
-                
+
+class EigenPlotStack(EigenPlot):
+    def initailize_six_systems(self):
+        for host in hosts:
+            g_agent = Stack(host, self.rootfolder)
+            g_agent.build_node_list()
+            g_agent.initialize_three_mat()
+            g_agent.build_adjacency_from_df_st()
+            g_agent.build_degree_from_adjacency()
+            g_agent.build_laplacian_by_adjacency_degree()
+            g_agent.eigen_decompose()
+            g_agent.set_strand_array()
+            self.d_agent[host] = g_agent
+
+class EigenPlotStackHB(EigenPlot):
+    def initailize_six_systems(self):
+        for host in hosts:
+            g_agent = StackHB(host, self.rootfolder)
+            g_agent.build_node_list()
+            g_agent.initialize_three_mat()
+            g_agent.build_adjacency_from_df_st_df_hb()
+            g_agent.build_degree_from_adjacency()
+            g_agent.build_laplacian_by_adjacency_degree()
+            g_agent.eigen_decompose()
+            g_agent.set_strand_array()
+            self.d_agent[host] = g_agent
+
+class EigenPlotHB(EigenPlot):
+    def initailize_six_systems(self):
+        for host in hosts:
+            g_agent = onlyHB(host, self.rootfolder)
+            g_agent.build_node_list()
+            g_agent.initialize_three_mat()
+            g_agent.build_adjacency_from_df_hb()
+            g_agent.build_degree_from_adjacency()
+            g_agent.build_laplacian_by_adjacency_degree()
+            g_agent.eigen_decompose()
+            self.d_agent[host] = g_agent
+
+class EigenPlotBackboneRibose(EigenPlot):
+    def initailize_six_systems(self):
+        for host in hosts:
+            g_agent = BackboneRibose(host, self.rootfolder)
+            g_agent.build_node_list()
+            g_agent.initialize_three_mat()
+            g_agent.build_adjacency_from_pp_r()
+            g_agent.build_degree_from_adjacency()
+            g_agent.build_laplacian_by_adjacency_degree()
+            g_agent.eigen_decompose()
+            g_agent.set_benchmark_array()
+            g_agent.set_strand_array()
+            self.d_agent[host] = g_agent
+
+    def plot_lambda_separate_strand(self, figsize):
+        ncols = 3
+        fig, axes = plt.subplots(nrows=1, ncols=ncols, figsize=figsize, sharey=True)
+        for ax_id in range(ncols):
+            ax = axes[ax_id]
+            host1 = self.d_groups[ax_id][0]
+            host2 = self.d_groups[ax_id][1]
+            self.ax_plot_lambda(ax, host1)
+            self.ax_plot_lambda(ax, host2)
+            self.ax_plot_assistline(ax)
+            ax.legend(frameon=False)
+            ax.set_xlabel("Eigenvalue ID")
+            if ax_id == 0:
+                ax.set_ylabel("Eigenvalue")
+        return fig, ax
+
+    def ax_plot_assistline(self, ax):
+        for y in range(100, 801, 100):
+            ax.axhline(y, color='grey',alpha=0.15)
+
+
+class StackHBCoupling:
+    abbr_hosts = {'a_tract_21mer': 'A-tract', 'ctct_21mer': 'CTCT', 'gcgc_21mer': 'GCGC',
+                  'g_tract_21mer': 'G-tract', 'atat_21mer': 'ATAT', 'tgtg_21mer': 'TGTG'}
+
+    def __init__(self, rootfolder, host):
+        self.rootfolder = rootfolder
+        self.host = host
+        self.abbrhost = self.abbr_hosts[host]
+
+        self.stack = Stack(host, rootfolder)
+        self.hb = onlyHB(host, rootfolder)
+        self.stackhb = StackHB(host, rootfolder)
+
+        self.n_eigenvector = 20
+        self.eigenlist = list(range(1, self.n_eigenvector+1))
+
+    def initialize_eigenvectors(self):
+        self.initialize_stack()
+        self.initialize_hb()
+        self.initialize_stackhb()
+
+    def initialize_stack(self):
+        self.stack.build_node_list()
+        self.stack.initialize_three_mat()
+        self.stack.build_adjacency_from_df_st()
+        self.stack.build_degree_from_adjacency()
+        self.stack.build_laplacian_by_adjacency_degree()
+        self.stack.eigen_decompose()
+
+    def initialize_hb(self):
+        self.hb.build_node_list()
+        self.hb.initialize_three_mat()
+        self.hb.build_adjacency_from_df_hb()
+        self.hb.build_degree_from_adjacency()
+        self.hb.build_laplacian_by_adjacency_degree()
+        self.hb.eigen_decompose() 
+
+    def initialize_stackhb(self):
+        self.stackhb.build_node_list()
+        self.stackhb.initialize_three_mat()
+        self.stackhb.build_adjacency_from_df_st_df_hb()
+        self.stackhb.build_degree_from_adjacency()
+        self.stackhb.build_laplacian_by_adjacency_degree()
+        self.stackhb.eigen_decompose()
+
+    def plot_main(self, figsize, hspace, wspace, width):
+        fig = plt.figure(figsize=figsize)
+        gs = fig.add_gridspec(5, 4, hspace=hspace, wspace=wspace)
+        d_axes = self.get_d_axes(fig, gs)
+        for eigid in self.eigenlist:
+            ax = d_axes[eigid]
+            xlist_stack, xlist_hb, xticks = self.get_xlist()
+            ylist_stack, ylist_hb = self.get_ylist(eigid)
+            xticklabels = self.get_xticklabels()
+            ax.bar(xlist_stack, ylist_stack, width, color='blue', label='Stack')
+            ax.bar(xlist_hb, ylist_hb, width, color='red', label='HB')
+            ax.set_xticks(xticks)
+            ax.set_xticklabels(xticklabels)
+            if eigid == 1:
+                ax.set_title(f'{self.abbrhost} $j$ = Mode {eigid} of Stack-HB')
+            else:
+                ax.set_title(f'$j$ = Mode {eigid} of Stack-HB')
+            if eigid == 1:
+                ax.legend()
+            if eigid in [1, 5, 9, 13, 17]:
+                ax.set_ylabel(r'$|e_{j}^{S+H} \cdot e_{i}^{S,H}|$')
+            if eigid in [17, 18, 19, 20]:
+                ax.set_xlabel(r'$i$')
+        gs.tight_layout(fig)        
+        return fig, d_axes
+
+    def get_d_axes(self, fig, gs):
+        d_axes = dict()
+        eigid = 1
+        for row_id in range(5):
+            for col_id in range(4):
+                d_axes[eigid] = fig.add_subplot(gs[row_id,col_id])
+                eigid += 1
+        return d_axes
+
+    def get_ylist(self, eigid):
+        eig_stackhb = self.stackhb.get_eigenvector_by_id(eigid)
+        ylist_stack = np.zeros(self.n_eigenvector)
+        ylist_hb = np.zeros(self.n_eigenvector)
+        for tempeigid in self.eigenlist:
+            eig_stack = self.stack.get_eigenvector_by_id(tempeigid)
+            dotproduct = np.dot(eig_stackhb, eig_stack)
+            ylist_stack[tempeigid-1] = np.abs(dotproduct)
+        for tempeigid in self.eigenlist:
+            eig_hb = self.hb.get_eigenvector_by_id(tempeigid)
+            dotproduct = np.dot(eig_stackhb, eig_hb)
+            ylist_hb[tempeigid-1] = np.abs(dotproduct)
+        return ylist_stack, ylist_hb
+
+    def get_xlist(self):
+        start = 1
+        end = start + self.n_eigenvector
+        xlist_stack = list(range(start, end))
+
+        start = end + 1
+        end = start + self.n_eigenvector
+        xlist_hb = list(range(start, end))
+
+        xticks = xlist_stack[::2] + xlist_hb[::2]
+        return xlist_stack, xlist_hb, xticks
+
+    def get_xticklabels(self):
+        start = 1
+        end = start + self.n_eigenvector
+        temp = [f'{i}' for i in range(start,end)]
+        return temp[::2] + temp[::2]
