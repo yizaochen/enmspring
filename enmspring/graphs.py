@@ -682,3 +682,48 @@ class StackHBCoupling:
         end = start + self.n_eigenvector
         temp = [f'{i}' for i in range(start,end)]
         return temp[::2] + temp[::2]
+
+
+class StackHBCommonNodes(StackHBCoupling):
+
+    def __init__(self, rootfolder, host):
+        super().__init__(rootfolder, host)
+        self.n_eigenvector = 40
+        self.eigenlist = list(range(1, 21))
+
+    def plot_main(self, figsize, hspace, wspace, width, ylim):
+        fig = plt.figure(figsize=figsize)
+        gs = fig.add_gridspec(5, 4, hspace=hspace, wspace=wspace)
+        d_axes = self.get_d_axes(fig, gs)
+        for eigid in self.eigenlist:
+            ax = d_axes[eigid]
+            xlist = self.get_xlist()
+            ylist = self.get_ylist(eigid)
+            ax.bar(xlist, ylist, width, color='blue')
+            ax.set_xticks(xlist[::5])
+            ax.set_ylim(ylim)
+            if eigid == 1:
+                ax.set_title(f'{self.abbrhost} $j$ = Mode {eigid} of HB')
+            else:
+                ax.set_title(f'$j$ = Mode {eigid} of Stack-HB')
+            if eigid in [1, 5, 9, 13, 17]:
+                ax.set_ylabel(r'$|e_{j}^{H} \cdot e_{i}^{S}|$')
+            if eigid in [17, 18, 19, 20]:
+                ax.set_xlabel(r'$i$')
+            
+        gs.tight_layout(fig)        
+        return fig, d_axes
+
+    def get_xlist(self):
+        start = 1
+        end = start + self.n_eigenvector
+        return list(range(start, end))
+
+    def get_ylist(self, eigid):
+        eig_hb = self.hb.get_eigenvector_by_id(eigid)
+        ylist = np.zeros(self.n_eigenvector)
+        for tempeigid in range(1, self.n_eigenvector+1):
+            eig_stack = self.stack.get_eigenvector_by_id(tempeigid)
+            dotproduct = np.dot(eig_hb, eig_stack)
+            ylist[tempeigid-1] = np.abs(dotproduct)
+        return ylist
