@@ -705,7 +705,7 @@ class StackHBCommonNodes(StackHBCoupling):
             if eigid == 1:
                 ax.set_title(f'{self.abbrhost} $j$ = Mode {eigid} of HB')
             else:
-                ax.set_title(f'$j$ = Mode {eigid} of Stack-HB')
+                ax.set_title(f'$j$ = Mode {eigid} of HB')
             if eigid in [1, 5, 9, 13, 17]:
                 ax.set_ylabel(r'$|e_{j}^{H} \cdot e_{i}^{S}|$')
             if eigid in [17, 18, 19, 20]:
