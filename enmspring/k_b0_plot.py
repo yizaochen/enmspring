@@ -198,9 +198,9 @@ class CorrelationPlot:
              'g_tract_21mer', 'atat_21mer', 'tgtg_21mer']
     abbr_hosts = {'a_tract_21mer': 'A-tract', 'ctct_21mer': 'CTCT', 'gcgc_21mer': 'GCGC',
                   'g_tract_21mer': 'G-tract', 'atat_21mer': 'ATAT', 'tgtg_21mer': 'TGTG'}    
-    subcategories = ['PP0', 'PP1', 'PP2', 'PP3', 
-                         'R0', 'R1', 'RB0', 'RB1', 'RB2', 'RB3', 'PB', 
-                         'st', 'hb', 'bp1', 'bp2']
+    #subcategories = ['PP0', 'PP1', 'PP2', 'PP3', 'R0', 'R1', 'RB0', 'RB1', 'RB2', 'RB3', 'PB', 
+    #                 'st', 'hb', 'bp1', 'bp2']
+    subcategories = ['PP0', 'PP1', 'PP2', 'R0', 'R1', 'RB0', 'RB1', 'RB2', 'st', 'hb', 'bp1']
     n_bp = 21
     type_na = 'bdna+bdna'
     

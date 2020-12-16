@@ -10,6 +10,7 @@ setup(name='enmspring',
           'MDAnalysis',
           'matplotlib',
           'pandas',
-          'scipy'
+          'scipy',
+          'seaborn'
       ]
       )

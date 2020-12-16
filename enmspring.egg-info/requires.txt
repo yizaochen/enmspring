@@ -2,3 +2,4 @@ MDAnalysis
 matplotlib
 pandas
 scipy
+seaborn
