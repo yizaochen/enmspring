@@ -507,6 +507,7 @@ class EigenPlotStack(EigenPlot):
             g_agent.build_adjacency_from_df_st()
             g_agent.build_degree_from_adjacency()
             g_agent.build_laplacian_by_adjacency_degree()
+            g_agent.set_benchmark_array()
             g_agent.eigen_decompose()
             g_agent.set_strand_array()
             self.d_agent[host] = g_agent
