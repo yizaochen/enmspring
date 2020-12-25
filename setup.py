@@ -11,6 +11,7 @@ setup(name='enmspring',
           'matplotlib',
           'pandas',
           'scipy',
-          'seaborn'
+          'seaborn',
+          'networkx'
       ]
       )

@@ -12,6 +12,7 @@ enmspring/k_b0_plot.py
 enmspring/k_b0_util.py
 enmspring/miscell.py
 enmspring/na_seq.py
+enmspring/networkx_display.py
 enmspring/pairtype.py
 enmspring/spring.py
 enmspring/stack_util.py
