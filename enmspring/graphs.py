@@ -3,10 +3,13 @@ from shutil import copyfile
 import numpy as np
 import MDAnalysis
 import matplotlib.pyplot as plt
+import networkx as nx
 from enmspring import pairtype
 from enmspring.spring import Spring
 from enmspring.k_b0_util import get_df_by_filter_st, get_df_by_filter_PP, get_df_by_filter_R
 from enmspring.hb_util import HBAgent
+from enmspring.na_seq import sequences
+from enmspring.networkx_display import THY_Base, CYT_Base, ADE_Base, GUA_Base, THY_Right_Base, CYT_Right_Base, ADE_Right_Base, GUA_Right_Base
 
 hosts = ['a_tract_21mer', 'gcgc_21mer', 'tgtg_21mer',
          'atat_21mer', 'ctct_21mer', 'g_tract_21mer']
@@ -46,6 +49,8 @@ class GraphAgent:
         self.strand2_array = list() #
         self.strand1_benchmark = None
         self.strand2_benchmark = None
+
+        self.d_seq = {'STRAND1': sequences[host]['guide'], 'STRAND2': sequences[host]['target']}
         
     def build_node_list(self):
         node_list = list()
@@ -75,6 +80,64 @@ class GraphAgent:
     def build_laplacian_by_adjacency_degree(self):
         self.laplacian_mat = self.degree_mat + self.adjacency_mat
         print("Finish the setup for Laplaican matrix.")
+
+    def get_networkx_graph(self, df, key='k'):
+        # key: 'k', 'b0'
+        node1_list = df['Atomid_i'].tolist()
+        node2_list = df['Atomid_j'].tolist()
+        weight_list = df[key].tolist()
+        edges_list = [(node1, node2, {'weight': weight}) for node1, node2, weight in zip(node1_list, node2_list, weight_list)]
+        G = nx.Graph()
+        G.add_nodes_from(self.get_node_list_by_id())
+        G.add_edges_from(edges_list)
+        return G
+
+    def get_node_list_by_id(self):
+        return [self.atomid_map[name] for name in self.node_list]
+
+    def get_networkx_d_pos(self, radius, dist_bw_base, dist_bw_strand):
+        d_atcg = {'A': {'STRAND1': ADE_Base, 'STRAND2': ADE_Right_Base}, 
+                  'T': {'STRAND1': THY_Base, 'STRAND2': THY_Right_Base}, 
+                  'C': {'STRAND1': CYT_Base, 'STRAND2': CYT_Right_Base}, 
+                  'G': {'STRAND1': GUA_Base, 'STRAND2': GUA_Right_Base}
+                  }
+        d_strandid_resid = self.get_d_strandid_resid()
+        d_pos = dict()
+        x_move = 0
+        y_move = 0
+        for strand_id in ['STRAND1', 'STRAND2']:
+            for resid in range(1, self.n_bp+1):
+                resname = self.d_seq[strand_id][resid-1]
+                nucleobase = d_atcg[resname][strand_id](radius)
+                nucleobase.translate_xy(x_move, y_move)
+                for name in d_strandid_resid[strand_id][resid]:
+                    atomid = self.atomid_map[name]
+                    atomname = self.atomname_map[name]
+                    d_pos[atomid] = nucleobase.d_nodes[atomname]
+                if strand_id == 'STRAND1' and (resid != self.n_bp):
+                    y_move += dist_bw_base
+                elif (strand_id == 'STRAND1') and (resid == self.n_bp):
+                    y_move -= 0
+                else:
+                    y_move -= dist_bw_base
+            x_move -= dist_bw_strand
+        return d_pos
+
+    def get_d_strandid_resid(self):
+        d_strandid_resid = self.initialize_d_strandid_resid()
+        for name in self.node_list:
+            strandid = self.strandid_map[name]
+            resid = self.resid_map[name]
+            d_strandid_resid[strandid][resid].append(name)
+        return d_strandid_resid
+
+    def initialize_d_strandid_resid(self):
+        d_strandid_resid = dict()
+        for strand_id in ['STRAND1', 'STRAND2']:
+            d_strandid_resid[strand_id] = dict()
+            for resid in range(1, self.n_bp+1):
+                d_strandid_resid[strand_id][resid] = list()
+        return d_strandid_resid
 
     def eigen_decompose(self):
         w, v = np.linalg.eig(self.laplacian_mat)
