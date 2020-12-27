@@ -139,6 +139,17 @@ class GraphAgent:
                 d_strandid_resid[strand_id][resid] = list()
         return d_strandid_resid
 
+    def get_filter_by_atomname_strandid(self, sele_name, sele_strandid):
+        sele_resid_list = list(range(4, 19))
+        sele_idx_list = list()
+        for idx, name in enumerate(self.node_list):
+            if (self.atomname_map[name] == sele_name) and (self.strandid_map[name] == sele_strandid) and (self.resid_map[name] in sele_resid_list):
+                sele_idx_list.append(idx)
+
+        y = np.zeros(self.n_node)
+        y[sele_idx_list] = 1
+        return y / np.linalg.norm(y)
+
     def eigen_decompose(self):
         w, v = np.linalg.eig(self.laplacian_mat)
         idx = w.argsort()[::-1] # sort from big to small

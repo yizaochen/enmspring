@@ -8,6 +8,7 @@ enmspring/fluctpair.py
 enmspring/graphs.py
 enmspring/hb_util.py
 enmspring/ic_table.py
+enmspring/importance_atom.py
 enmspring/k_b0_plot.py
 enmspring/k_b0_util.py
 enmspring/miscell.py
