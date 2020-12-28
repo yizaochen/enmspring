@@ -150,6 +150,25 @@ class GraphAgent:
         y[sele_idx_list] = 1
         return y / np.linalg.norm(y)
 
+    def get_filter_by_atomname_for_YR(self, sele_name, sele_resname, sele_strandid):
+        sele_resid_list = list(range(4, 19))
+        sele_idx_list = list()
+        for idx, name in enumerate(self.node_list):
+            resid = self.resid_map[name]
+            if resid not in sele_resid_list:
+                continue
+            strandid = self.strandid_map[name]
+            if strandid != sele_strandid:
+                continue
+            resname = self.d_seq[strandid][resid-1]
+            if resname != sele_resname:
+                continue
+            if self.atomname_map[name] == sele_name:
+                sele_idx_list.append(idx)
+        y = np.zeros(self.n_node)
+        y[sele_idx_list] = 1
+        return y / np.linalg.norm(y)
+
     def eigen_decompose(self):
         w, v = np.linalg.eig(self.laplacian_mat)
         idx = w.argsort()[::-1] # sort from big to small
