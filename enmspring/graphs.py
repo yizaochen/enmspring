@@ -181,6 +181,19 @@ class GraphAgent:
     def get_eigenvector_by_id(self, sele_id):
         return self.v[:,sele_id-1]
 
+    def get_qtAq(self, sele_id):
+        eigvector_sele = self.get_eigenvector_by_id(sele_id)
+        return np.dot(eigvector_sele.T, np.dot(self.adjacency_mat, eigvector_sele))
+
+    def get_qtDq(self, sele_id):
+        eigvector_sele = self.get_eigenvector_by_id(sele_id)
+        return np.dot(eigvector_sele.T, np.dot(self.degree_mat, eigvector_sele))
+
+    def get_qtMq(self, sele_id, M):
+        ### M is customized matrix
+        eigvector_sele = self.get_eigenvector_by_id(sele_id)
+        return np.dot(eigvector_sele.T, np.dot(M, eigvector_sele))
+
     def vmd_show_crd(self):
         print(f'vmd -cor {self.npt4_crd}')
 
@@ -350,6 +363,16 @@ class Stack(GraphAgent):
     def __init__(self, host, rootfolder):
         super().__init__(host, rootfolder)
         self.df_st = self.__read_df_st()
+
+    def pre_process(self):
+        self.build_node_list()
+        self.initialize_three_mat()
+        self.build_adjacency_from_df_st()
+        self.build_degree_from_adjacency()
+        self.build_laplacian_by_adjacency_degree()
+        self.eigen_decompose()
+        self.set_benchmark_array()
+        self.set_strand_array()
 
     def build_adjacency_from_df_st(self):
         self.set_adjacency_by_df(self.df_st)
