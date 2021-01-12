@@ -18,6 +18,7 @@ enmspring/networkx_display.py
 enmspring/pairtype.py
 enmspring/spring.py
 enmspring/stack_util.py
+enmspring/vmddraw.py
 enmspring.egg-info/PKG-INFO
 enmspring.egg-info/SOURCES.txt
 enmspring.egg-info/dependency_links.txt

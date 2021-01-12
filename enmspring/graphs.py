@@ -139,6 +139,17 @@ class GraphAgent:
                 d_strandid_resid[strand_id][resid] = list()
         return d_strandid_resid
 
+    def get_D_by_atomname_strandid(self, sele_name, sele_strandid):
+        sele_resid_list = list(range(4, 19))
+        sele_idx_list = list()
+        for idx, name in enumerate(self.node_list):
+            if (self.atomname_map[name] == sele_name) and (self.strandid_map[name] == sele_strandid) and (self.resid_map[name] in sele_resid_list):
+                sele_idx_list.append(idx)
+        sele_D = np.zeros((self.n_node, self.n_node))
+        for idx in sele_idx_list:
+            sele_D[idx, idx] = self.degree_mat[idx, idx]
+        return sele_D
+
     def get_filter_by_atomname_strandid(self, sele_name, sele_strandid):
         sele_resid_list = list(range(4, 19))
         sele_idx_list = list()
