@@ -150,6 +150,32 @@ class GraphAgent:
             sele_D[idx, idx] = self.degree_mat[idx, idx]
         return sele_D
 
+    def get_A_by_atomname1_atomname2(self, atomname_i, atomname_j, sele_strandid):
+        sele_idx_list = list()
+        for resid_i in range(4, 18):
+            resid_j = resid_i + 1
+            idx_i = self.d_idx[self.map[self.get_key_by_atomname_resid_strandid(atomname_i, resid_i, sele_strandid)]]
+            idx_j = self.d_idx[self.map[self.get_key_by_atomname_resid_strandid(atomname_j, resid_j, sele_strandid)]]
+            sele_idx_list.append((idx_i, idx_j))
+        sele_A = np.zeros((self.n_node, self.n_node))
+        for idx_i, idx_j in sele_idx_list:
+            sele_A[idx_i, idx_j] = self.adjacency_mat[idx_i, idx_j]
+        i_lower = np.tril_indices(self.n_node, -1)
+        sele_A[i_lower] = sele_A.transpose()[i_lower]  # make the matrix symmetric
+        return sele_A
+
+    def get_atomidpairs_atomname1_atomname2(self, atomname_i, atomname_j, sele_strandid):
+        atomidpairs = list()
+        for resid_i in range(4, 18):
+            resid_j = resid_i + 1
+            idx_i = self.atomid_map[self.map[self.get_key_by_atomname_resid_strandid(atomname_i, resid_i, sele_strandid)]]
+            idx_j = self.atomid_map[self.map[self.get_key_by_atomname_resid_strandid(atomname_j, resid_j, sele_strandid)]]
+            atomidpairs.append((idx_i, idx_j))
+        return atomidpairs
+
+    def get_key_by_atomname_resid_strandid(self, atomname, resid, strandid):
+        return f'segid {strandid} and resid {resid} and name {atomname}'
+
     def get_filter_by_atomname_strandid(self, sele_name, sele_strandid):
         sele_resid_list = list(range(4, 19))
         sele_idx_list = list()

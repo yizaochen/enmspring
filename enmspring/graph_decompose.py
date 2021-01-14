@@ -172,3 +172,72 @@ class AtomImportance:
             return d_xarray[middle_atomname]
         else:
             return d_xarray[middle_atomname] - w_small
+
+
+class PairImportance(AtomImportance):
+    def plot_lambda_qTAq_respective_atoms_one_mode(self, figsize, strandid, mode_id, bbox_to_anchor):
+        """
+        strandid: 'STRAND1', 'STRAND2'
+        """
+        resname = self.d_host_strand[self.host][strandid]
+        atomlist = self.d_atomlist[resname]
+        d_atomlist = self.get_d_atomlist(atomlist)
+
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize)
+        w_small = 0.5
+        w_big = 0.8
+        d_xarray = self.get_d_xarray(atomlist, d_atomlist, w_small, w_big)
+        d_result = self.get_d_result(atomlist, d_atomlist, strandid, mode_id)
+        xticks, xticklabels = self.get_xticks_xticklabels(atomlist, d_xarray, d_atomlist)
+        for atomname in atomlist:
+            ax.bar(d_xarray[atomname], d_result[atomname], w_small, label=atomname, edgecolor='white', color=self.d_color[atomname])
+        ax.set_ylabel(self.get_ylabel(mode_id))
+        ax.set_xlabel('Mode id, $i$')
+        ax.set_xticks(xticks)
+        ax.set_xticklabels(xticklabels)
+        ax.legend(ncol=1, loc='center right', bbox_to_anchor=bbox_to_anchor)
+        ax.set_title(self.get_title(strandid))
+        return fig, ax
+
+    def get_ylabel(self, mode_id):
+        return r'Decomposed $\lambda_{' + f'{mode_id}' + r'}$ (kcal/mol/Å$^2$)'
+
+    def get_d_atomlist(self, atomlist):
+        d_atomlist = dict()
+        atomlist_fordelete = [atomname for atomname in atomlist]
+        for atomname1 in atomlist:
+            d_atomlist[atomname1] = [atomname2 for atomname2 in atomlist_fordelete]
+            atomlist_fordelete.remove(atomname1)
+        return d_atomlist
+
+    def get_d_xarray(self, atomlist, d_atomlist, w_small, w_big):
+        d_xarray = dict()
+        x = 0.
+        for atomname1 in atomlist:
+            n_atom2 = len(d_atomlist[atomname1])
+            d_xarray[atomname1] = np.zeros(n_atom2)
+            for idx in range(n_atom2):
+                d_xarray[atomname1][idx] = x
+                x += w_small
+            x += w_big
+        return d_xarray
+
+    def get_xticks_xticklabels(self, atomlist, d_xarray, d_atomlist):
+        xticks = list()
+        xticklabels = list()
+        for atomname1 in atomlist:
+            xticks += list(d_xarray[atomname1])
+            xticklabels += d_atomlist[atomname1]
+        return xticks, xticklabels
+
+    def get_d_result(self, atomlist, d_atomlist, strandid, mode_id):
+        d_result = dict()
+        for atomname1 in atomlist:
+            d_result[atomname1] = np.zeros(len(d_atomlist[atomname1]))
+            for idx, atomname2 in enumerate(d_atomlist[atomname1]):
+                q = self.g_agent.get_eigenvector_by_id(mode_id)
+                A_mat = self.g_agent.get_A_by_atomname1_atomname2(atomname1, atomname2, strandid)
+                qTDq = np.dot(q.T, np.dot(A_mat, q))
+                d_result[atomname1][idx] = qTDq
+        return d_result
+

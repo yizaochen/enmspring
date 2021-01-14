@@ -1,20 +1,54 @@
 from os import path
+import MDAnalysis
+from enmspring.graphs import Stack
 from enmspring.miscell import check_dir_exist_and_make
 enmspring_folder = '/home/yizaochen/codes/dna_rna/enmspring'
 
 class BaseStackImportanceAgent:
 
-    def __init__(self, host, pic_out_folder):
+    def __init__(self, host, rootfolder, pic_out_folder):
         self.host = host
+        self.rootfolder = rootfolder
         self.tcl_folder = path.join(enmspring_folder, 'tclscripts')
         self.pic_out_folder = pic_out_folder
         self.mol_stru_folder = path.join(self.pic_out_folder, 'mol_structure')
+
+        self.g_agent = self.get_g_agent_and_preprocess()
 
         self.check_folder()
 
     def check_folder(self):
         for folder in [self.mol_stru_folder]:
             check_dir_exist_and_make(folder)
+
+    def get_g_agent_and_preprocess(self):
+        g_agent = Stack(self.host, self.rootfolder)
+        g_agent.pre_process()
+        return g_agent
+
+    def vmd_show_pair_example(self, atomname_i, atomname_j, sele_strandid):
+        lines = list()
+        print(f'vmd -cor {self.g_agent.npt4_crd}')
+        atomidpairs = self.g_agent.get_atomidpairs_atomname1_atomname2(atomname_i, atomname_j, sele_strandid)
+        lines = self.process_lines_for_edges_tcl(lines, atomidpairs)
+        tcl_out = path.join(self.tcl_folder, 'illustrate_pairimportance.tcl')
+        self.write_tcl_out(tcl_out, lines)
+        
+    def process_lines_for_edges_tcl(self, lines, atomidpairs, radius=0.25):
+        u_npt4 = MDAnalysis.Universe(self.g_agent.npt4_crd, self.g_agent.npt4_crd) 
+        for atomid1, atomid2 in atomidpairs:
+            line = self.__get_draw_edge_line(u_npt4.atoms.positions, atomid1-1, atomid2-1, radius)
+            lines.append(line)
+        return lines
+
+    def __get_draw_edge_line(self, positions, atomid1, atomid2, radius):
+        str_0 = 'graphics 0 cylinder {'
+        str_1 = f'{positions[atomid1,0]:.3f} {positions[atomid1,1]:.3f} {positions[atomid1,2]:.3f}'
+        str_2 = '} {'
+        str_3 = f'{positions[atomid2,0]:.3f} {positions[atomid2,1]:.3f} {positions[atomid2,2]:.3f}'
+        str_4 = '} '
+        str_5 = f'radius {radius:.2f}\n'
+        return str_0 + str_1 + str_2 + str_3 + str_4 + str_5
 
     def vmd_show_a_tract_single_A(self):
         resid = 7
