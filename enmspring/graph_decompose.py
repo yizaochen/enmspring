@@ -175,7 +175,18 @@ class AtomImportance:
 
 
 class PairImportance(AtomImportance):
-    def plot_lambda_qTAq_respective_atoms_one_mode(self, figsize, strandid, mode_id, bbox_to_anchor):
+
+    def plot_lambda_qTAq_respective_atoms_five_modes(self, figsize, strandid, start_mode, end_mode, bbox_to_anchor, ylim=None, assist_lines=None):
+        mode_id_list_strand = list(range(start_mode, end_mode+1))
+        mode_id_list_molecule = self.d_strand[strandid][start_mode:end_mode+1]
+        fig, axes = plt.subplots(nrows=5, ncols=1, figsize=figsize)
+        for idx, mode_id in enumerate(mode_id_list_molecule):
+            mode_id_strand = mode_id_list_strand[idx]
+            self.plot_lambda_qTAq_respective_atoms_one_mode(axes[idx], strandid, mode_id, mode_id_strand, bbox_to_anchor, ylim, assist_lines)
+        return fig, axes
+
+
+    def plot_lambda_qTAq_respective_atoms_one_mode(self, ax, strandid, mode_id, mode_id_strand, bbox_to_anchor, ylim, assist_lines):
         """
         strandid: 'STRAND1', 'STRAND2'
         """
@@ -183,7 +194,6 @@ class PairImportance(AtomImportance):
         atomlist = self.d_atomlist[resname]
         d_atomlist = self.get_d_atomlist(atomlist)
 
-        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize)
         w_small = 0.5
         w_big = 0.8
         d_xarray = self.get_d_xarray(atomlist, d_atomlist, w_small, w_big)
@@ -191,13 +201,17 @@ class PairImportance(AtomImportance):
         xticks, xticklabels = self.get_xticks_xticklabels(atomlist, d_xarray, d_atomlist)
         for atomname in atomlist:
             ax.bar(d_xarray[atomname], d_result[atomname], w_small, label=atomname, edgecolor='white', color=self.d_color[atomname])
-        ax.set_ylabel(self.get_ylabel(mode_id))
+        ax.set_ylabel(self.get_ylabel(mode_id_strand))
         ax.set_xlabel('Mode id, $i$')
         ax.set_xticks(xticks)
         ax.set_xticklabels(xticklabels)
         ax.legend(ncol=1, loc='center right', bbox_to_anchor=bbox_to_anchor)
         ax.set_title(self.get_title(strandid))
-        return fig, ax
+        if ylim is not None:
+            ax.set_ylim(ylim)
+        if assist_lines is not None:
+            for yvalue in assist_lines:
+                ax.axhline(yvalue, color='grey', alpha=0.2)
 
     def get_ylabel(self, mode_id):
         return r'Decomposed $\lambda_{' + f'{mode_id}' + r'}$ (kcal/mol/Å$^2$)'

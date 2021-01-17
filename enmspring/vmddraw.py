@@ -1,10 +1,13 @@
 from os import path
 import MDAnalysis
+import numpy as np
 from enmspring.graphs import Stack
 from enmspring.miscell import check_dir_exist_and_make
 enmspring_folder = '/home/yizaochen/codes/dna_rna/enmspring'
+all_folder = '/home/yizaochen/codes/dna_rna/all_systems'
 
 class BaseStackImportanceAgent:
+    type_na = 'bdna+bdna'
 
     def __init__(self, host, rootfolder, pic_out_folder):
         self.host = host
@@ -12,6 +15,9 @@ class BaseStackImportanceAgent:
         self.tcl_folder = path.join(enmspring_folder, 'tclscripts')
         self.pic_out_folder = pic_out_folder
         self.mol_stru_folder = path.join(self.pic_out_folder, 'mol_structure')
+
+        self.allatom_folder = path.join(all_folder, host, self.type_na, 'input', 'allatoms')
+        self.perferct_gro = path.join(self.allatom_folder, f'{self.type_na}.perfect.gro')
 
         self.g_agent = self.get_g_agent_and_preprocess()
 
@@ -106,11 +112,125 @@ class BaseStackImportanceAgent:
         self.write_tcl_out(tcl_out, lines)
         self.print_tga_out(f'{self.host}_C_single')
 
+    def vmd_show_a_tract_AA_pair1(self):
+        u = MDAnalysis.Universe(self.perferct_gro, self.perferct_gro)
+        resid_i = 1
+        resid_j = 2
+        atompair_list = [('N1', 'N1'), ('N1', 'C6'), ('C6', 'C6'), ('C6', 'N6')]
+        radius_list = [0.08, 0.15, 0.2, 0.08]
+        color_list = [1, 1, 1, 1]
+        self.vmd_open_perfect_gro()
+        lines = ['mol delrep 0 0']
+        lines += self.vmd_add_resid_cpk_color_by_name(resid_i)
+        lines += self.vmd_add_resid_cpk_color_by_name(resid_j)
+        for atompair, radius, color in zip(atompair_list, radius_list, color_list):
+            positions = self.get_pair_positions_by_resid_names(u, resid_i, resid_j, atompair[0], atompair[1])
+            temp_lines = [f'graphics 0 color {color}',
+                          self.__get_draw_edge_line(positions, 0, 1, radius)]
+            lines += temp_lines
+        tcl_out = path.join(self.tcl_folder, 'show_basestack_pair.tcl')
+        self.write_tcl_out(tcl_out, lines)
+        self.print_tga_out(f'{self.host}_AA_pair1')
+
+    def vmd_show_a_tract_AA_pair2(self):
+        u = MDAnalysis.Universe(self.perferct_gro, self.perferct_gro)
+        resid_i = 1
+        resid_j = 2
+        atompair_list = [('C2', 'C5'), ('C2', 'C4'), ('N3', 'C4'), ('N3', 'C5'), ('C4', 'C4'), ('C4', 'C5'), ('C4', 'N7'), ('C5', 'C5')]
+        radius_list = [0.08, 0.08, 0.15, 0.15, 0.08, 0.2, 0.08, 0.15]
+        color_list = [7] * len(atompair_list)
+        self.vmd_open_perfect_gro()
+        lines = ['mol delrep 0 0']
+        lines += self.vmd_add_resid_cpk_color_by_name(resid_i)
+        lines += self.vmd_add_resid_cpk_color_by_name(resid_j)
+        for atompair, radius, color in zip(atompair_list, radius_list, color_list):
+            positions = self.get_pair_positions_by_resid_names(u, resid_i, resid_j, atompair[0], atompair[1])
+            temp_lines = [f'graphics 0 color {color}',
+                          self.__get_draw_edge_line(positions, 0, 1, radius)]
+            lines += temp_lines
+        tcl_out = path.join(self.tcl_folder, 'show_basestack_pair.tcl')
+        self.write_tcl_out(tcl_out, lines)
+        self.print_tga_out(f'{self.host}_AA_pair2')
+
+    def vmd_show_a_tract_TT_pair(self):
+        u = MDAnalysis.Universe(self.perferct_gro, self.perferct_gro)
+        resid_i = 22
+        resid_j = 23
+        atompair_list = [('N1', 'C5'), ('C2', 'C5'), ('N3', 'C4'), ('N3', 'C5'), ('C2', 'C4'), ('C2', 'C6'), ('C4', 'C4')]
+        radius_list = [0.2, 0.2, 0.15, 0.15, 0.08, 0.08, 0.08]
+        color_list = [1] * len(atompair_list)
+        self.vmd_open_perfect_gro()
+        lines = ['mol delrep 0 0']
+        lines += self.vmd_add_resid_cpk_color_by_name(resid_i)
+        lines += self.vmd_add_resid_cpk_color_by_name(resid_j)
+        for atompair, radius, color in zip(atompair_list, radius_list, color_list):
+            positions = self.get_pair_positions_by_resid_names(u, resid_i, resid_j, atompair[0], atompair[1])
+            temp_lines = [f'graphics 0 color {color}',
+                          self.__get_draw_edge_line(positions, 0, 1, radius)]
+            lines += temp_lines
+        tcl_out = path.join(self.tcl_folder, 'show_basestack_pair.tcl')
+        self.write_tcl_out(tcl_out, lines)
+        self.print_tga_out(f'{self.host}_TT_pair')
+
+    def vmd_show_g_tract_GG_pair(self):
+        u = MDAnalysis.Universe(self.perferct_gro, self.perferct_gro)
+        resid_i = 1
+        resid_j = 2
+        atompair_list = [('N1', 'C6'), ('C6', 'C6'), ('N3', 'C4'), ('N1', 'N1'), ('C2', 'C4'), ('C4', 'C5'), ('C4', 'N7')]
+        radius_list = [0.2, 0.2, 0.2, 0.08, 0.08, 0.08, 0.08]
+        color_list = [1] * len(atompair_list)
+        self.vmd_open_perfect_gro()
+        lines = ['mol delrep 0 0']
+        lines += self.vmd_add_resid_cpk_color_by_name(resid_i)
+        lines += self.vmd_add_resid_cpk_color_by_name(resid_j)
+        for atompair, radius, color in zip(atompair_list, radius_list, color_list):
+            positions = self.get_pair_positions_by_resid_names(u, resid_i, resid_j, atompair[0], atompair[1])
+            temp_lines = [f'graphics 0 color {color}',
+                          self.__get_draw_edge_line(positions, 0, 1, radius)]
+            lines += temp_lines
+        tcl_out = path.join(self.tcl_folder, 'show_basestack_pair.tcl')
+        self.write_tcl_out(tcl_out, lines)
+        self.print_tga_out(f'{self.host}_GG_pair')
+
+    def vmd_show_g_tract_CC_pair(self):
+        u = MDAnalysis.Universe(self.perferct_gro, self.perferct_gro)
+        resid_i = 22
+        resid_j = 23
+        atompair_list = [('N3', 'C4'), ('C2', 'C4'), ('N3', 'N4'), ('N3', 'N3')]
+        radius_list = [0.2, 0.15, 0.08, 0.05]
+        color_list = [1] * len(atompair_list)
+        self.vmd_open_perfect_gro()
+        lines = ['mol delrep 0 0']
+        lines += self.vmd_add_resid_cpk_color_by_name(resid_i)
+        lines += self.vmd_add_resid_cpk_color_by_name(resid_j)
+        for atompair, radius, color in zip(atompair_list, radius_list, color_list):
+            positions = self.get_pair_positions_by_resid_names(u, resid_i, resid_j, atompair[0], atompair[1])
+            temp_lines = [f'graphics 0 color {color}',
+                          self.__get_draw_edge_line(positions, 0, 1, radius)]
+            lines += temp_lines
+        tcl_out = path.join(self.tcl_folder, 'show_basestack_pair.tcl')
+        self.write_tcl_out(tcl_out, lines)
+        self.print_tga_out(f'{self.host}_CC_pair')
+
+    def get_pair_positions_by_resid_names(self, u, resid_i, resid_j, atomname_i, atomname_j):
+        positions = np.zeros((2,3))
+        positions[0,:] = u.select_atoms(f'resid {resid_i} and name {atomname_i}').positions[0,:]
+        positions[1,:] = u.select_atoms(f'resid {resid_j} and name {atomname_j}').positions[0,:]
+        return positions
+
     def vmd_add_resid(self, resid):
         lines = ['mol color ColorID 2',
                  'mol representation Licorice 0.100000 12.000000 12.000000',
                  f'mol selection resid {resid} and not hydrogen and not (name C1\' C2\' O4\' C3\' C4\' C5\' P O1P O2P O5\' O3\')',
                  'mol material Opaque',
+                 'mol addrep 0']
+        return lines
+
+    def vmd_add_resid_cpk_color_by_name(self, resid):
+        lines = ['mol color Name',
+                 'mol representation CPK 1.00000 0.300000 12.000000 12.000000',
+                 f'mol selection resid {resid} and not hydrogen and not (name C1\' C2\' O4\' C3\' C4\' C5\' P O1P O2P O5\' O3\')',
+                 'mol material Transparent',
                  'mol addrep 0']
         return lines
 
@@ -124,9 +244,7 @@ class BaseStackImportanceAgent:
         return lines
 
     def vmd_open_perfect_gro(self):
-        aa_folder = path.join('/home/yizaochen/codes/dna_rna/all_systems', self.host, 'bdna+bdna', 'input', 'allatoms')
-        perferct_gro = path.join(aa_folder, 'bdna+bdna.perfect.gro')
-        print(f'vmd -gro {perferct_gro}')
+        print(f'vmd -gro {self.perferct_gro}')
 
     def write_tcl_out(self, tcl_out, container):
         f = open(tcl_out, 'w')
