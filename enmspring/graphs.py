@@ -150,6 +150,27 @@ class GraphAgent:
             sele_D[idx, idx] = self.degree_mat[idx, idx]
         return sele_D
 
+    def get_D_by_atomname_strandid_resname(self, sele_name, sele_strandid, sele_resname):
+        sele_resid_list = self.get_sele_resid_list_by_resname(sele_resname, sele_strandid)
+        sele_idx_list = list()
+        for idx, name in enumerate(self.node_list):
+            if (self.atomname_map[name] == sele_name) and (self.strandid_map[name] == sele_strandid) and (self.resid_map[name] in sele_resid_list):
+                sele_idx_list.append(idx)
+        sele_D = np.zeros((self.n_node, self.n_node))
+        for idx in sele_idx_list:
+            sele_D[idx, idx] = self.degree_mat[idx, idx]
+        return sele_D
+
+    def get_sele_resid_list_by_resname(self, resname, strandid):
+        sele_resid_list = list()
+        central_resids = list(range(4, 19))
+        #central_resids = list(range(1, 22))
+        for idx, nt_name in enumerate(self.d_seq[strandid]):
+            resid = idx + 1
+            if (resid in central_resids) and (nt_name == resname):
+                sele_resid_list.append(resid)
+        return sele_resid_list
+
     def get_A_by_atomname1_atomname2(self, atomname_i, atomname_j, sele_strandid):
         sele_idx_list = list()
         for resid_i in range(4, 18):
@@ -163,6 +184,31 @@ class GraphAgent:
         i_lower = np.tril_indices(self.n_node, -1)
         sele_A[i_lower] = sele_A.transpose()[i_lower]  # make the matrix symmetric
         return sele_A
+
+    def get_A_by_atomname1_atomname2_by_resnames(self, atomname_i, atomname_j, resname_i, resname_j, sele_strandid):
+        sele_idx_list = list()
+        resid_i_list, resid_j_list = self.get_resid_i_resid_j_list(resname_i, resname_j, sele_strandid)
+        for resid_i, resid_j in zip(resid_i_list, resid_j_list):
+            idx_i = self.d_idx[self.map[self.get_key_by_atomname_resid_strandid(atomname_i, resid_i, sele_strandid)]]
+            idx_j = self.d_idx[self.map[self.get_key_by_atomname_resid_strandid(atomname_j, resid_j, sele_strandid)]]
+            sele_idx_list.append((idx_i, idx_j))
+        sele_A = np.zeros((self.n_node, self.n_node))
+        for idx_i, idx_j in sele_idx_list:
+            sele_A[idx_i, idx_j] = self.adjacency_mat[idx_i, idx_j]
+        i_lower = np.tril_indices(self.n_node, -1)
+        sele_A[i_lower] = sele_A.transpose()[i_lower]  # make the matrix symmetric
+        return sele_A
+
+    def get_resid_i_resid_j_list(self, resname_i, resname_j, sele_strandid):
+        seq = self.d_seq[sele_strandid]
+        central_resids = range(4, 19)
+        resid_i_list = list()
+        resid_j_list = list()
+        for resid in central_resids:
+            if (seq[resid-1] == resname_i) and (seq[resid] == resname_j):
+                resid_i_list.append(resid)
+                resid_j_list.append(resid+1)
+        return resid_i_list, resid_j_list
 
     def get_atomidpairs_atomname1_atomname2(self, atomname_i, atomname_j, sele_strandid):
         atomidpairs = list()

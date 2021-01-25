@@ -100,8 +100,11 @@ class AtomImportance:
                      'tgtg_21mer': {'STRAND1': ('T', 'G'), 'STRAND2': ('A', 'C')},
                      }
     d_titles = {'a_tract_21mer': ('A-Tract: (AA)', 'A-Tract: (TT)'), 'g_tract_21mer': ('G-Tract: (GG)', 'G-Tract: (CC)'),
-                'atat_21mer': ('AT: (AT)', 'AT: (AT)'), 'gcgc_21mer':  ('GC: (GC)', 'GC: (GC)'),
-                'ctct_21mer':  ('CT: (CT)', 'CT: (GA)'), 'tgtg_21mer': ('TG: (TG)', 'TG: (AC)')}            
+                'atat_21mer': ('ATAT: (TA)', 'ATAT: (AT)'), 'gcgc_21mer':  ('GCGC: (CG)', 'GCGC: (GC)'),
+                'ctct_21mer': ('CTCT: (TC)', 'CTCT: (AG)'), 
+                'tgtg_21mer': ('TGTG: (GT)', 'TGTG: (CA)')}
+    abbr_host = {'a_tract_21mer': 'A-Tract', 'g_tract_21mer': 'G-Tract', 'atat_21mer': 'ATAT',
+                 'gcgc_21mer': 'GCGC', 'ctct_21mer': 'CTCT', 'tgtg_21mer': 'TGTG'}      
     
     def __init__(self, host, rootfolder):
         self.host = host
@@ -138,9 +141,41 @@ class AtomImportance:
         ax.set_title(self.get_title(strandid))
         return fig, ax
 
+    def plot_lambda_qTDq_respective_atoms_by_resname(self, figsize, strandid, resname, start_mode, end_mode, bbox_to_anchor):
+        """
+        strandid: 'STRAND1', 'STRAND2'
+        resname: 'A', 'T', 'C', 'G'
+        """
+        atomlist = self.d_atomlist[resname]
+        n_mode = end_mode - start_mode + 1
+
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize)
+        w_small = 0.5
+        w_big = 0.8
+        d_xarray = self.get_d_xarray(atomlist, n_mode, w_small, w_big)
+        d_result = self.get_qTDq_d_result_by_resname(atomlist, n_mode, start_mode, end_mode, strandid, resname)
+        xticks = self.get_xticks(atomlist, d_xarray, w_small)
+        for atomname in atomlist:
+            ax.bar(d_xarray[atomname], d_result[atomname], w_small, label=atomname, color=self.d_color[atomname])
+        ax.set_ylabel(r'Decomposed $\lambda$ (kcal/mol/Å$^2$)')
+        ax.set_xlabel('Mode id, $i$')
+        ax.set_xticks(xticks)
+        ax.set_xticklabels(range(start_mode, end_mode+1))
+        ax.legend(ncol=1, loc='center right', bbox_to_anchor=bbox_to_anchor)
+        ax.set_title(self.get_title_by_resname(resname))
+        return fig, ax
+
     def get_title(self, strandid):
         d_strandid = {'STRAND1': 0, 'STRAND2': 1}
         return self.d_titles[self.host][d_strandid[strandid]]
+
+    def get_title_by_resname(self, resname):
+        return self.d_titles[self.host][resname]
+
+    def get_title_by_resname_i_resname_j(self, resname_i, resname_j):
+        str1 = self.abbr_host[self.host]
+        str2 = f'{resname_i}{resname_j}'
+        return f'{str1}: {str2}'
 
     def get_qTDq_d_result(self, atomlist, n_mode, start_mode, end_mode, strandid):
         d_result = dict()
@@ -148,6 +183,18 @@ class AtomImportance:
         for atomname in atomlist:
             d_result[atomname] = np.zeros(n_mode)
             D_mat = self.g_agent.get_D_by_atomname_strandid(atomname, strandid)
+            for idx, mode_id in enumerate(real_mode_id_list):
+                q = self.g_agent.get_eigenvector_by_id(mode_id)
+                qTDq = np.dot(q.T, np.dot(D_mat, q))
+                d_result[atomname][idx] = qTDq
+        return d_result
+
+    def get_qTDq_d_result_by_resname(self, atomlist, n_mode, start_mode, end_mode, strandid, resname):
+        d_result = dict()
+        real_mode_id_list = self.d_strand[strandid][start_mode:end_mode+1]
+        for atomname in atomlist:
+            d_result[atomname] = np.zeros(n_mode)
+            D_mat = self.g_agent.get_D_by_atomname_strandid_resname(atomname, strandid, resname)
             for idx, mode_id in enumerate(real_mode_id_list):
                 q = self.g_agent.get_eigenvector_by_id(mode_id)
                 qTDq = np.dot(q.T, np.dot(D_mat, q))
@@ -185,6 +232,14 @@ class PairImportance(AtomImportance):
             self.plot_lambda_qTAq_respective_atoms_one_mode(axes[idx], strandid, mode_id, mode_id_strand, bbox_to_anchor, ylim, assist_lines)
         return fig, axes
 
+    def plot_lambda_qTAq_respective_atoms_five_modes_by_resnames(self, figsize, strandid, resname_i, resname_j, start_mode, end_mode, bbox_to_anchor, ylim=None, assist_lines=None):
+        mode_id_list_strand = list(range(start_mode, end_mode+1))
+        mode_id_list_molecule = self.d_strand[strandid][start_mode:end_mode+1]
+        fig, axes = plt.subplots(nrows=5, ncols=1, figsize=figsize)
+        for idx, mode_id in enumerate(mode_id_list_molecule):
+            mode_id_strand = mode_id_list_strand[idx]
+            self.plot_lambda_qTAq_respective_atoms_one_mode_by_resnames(axes[idx], strandid, resname_i, resname_j, mode_id, mode_id_strand, bbox_to_anchor, ylim, assist_lines)
+        return fig, axes
 
     def plot_lambda_qTAq_respective_atoms_one_mode(self, ax, strandid, mode_id, mode_id_strand, bbox_to_anchor, ylim, assist_lines):
         """
@@ -213,6 +268,34 @@ class PairImportance(AtomImportance):
             for yvalue in assist_lines:
                 ax.axhline(yvalue, color='grey', alpha=0.2)
 
+    def plot_lambda_qTAq_respective_atoms_one_mode_by_resnames(self, ax, strandid, resname_i, resname_j, mode_id, mode_id_strand, bbox_to_anchor, ylim, assist_lines):
+        """
+        strandid: 'STRAND1', 'STRAND2'
+        """
+        atomlist_i = self.d_atomlist[resname_i]
+        atomlist_j = self.d_atomlist[resname_j]
+        d_atomlist = self.get_d_atomlist_by_atomlist_ij(atomlist_i, atomlist_j)
+
+        w_small = 0.5
+        w_big = 0.8
+        d_xarray = self.get_d_xarray(atomlist_i, d_atomlist, w_small, w_big)
+        d_result = self.get_d_result_by_resnames(atomlist_i, d_atomlist, strandid, resname_i, resname_j, mode_id)
+        xticks, xticklabels = self.get_xticks_xticklabels(atomlist_i, d_xarray, d_atomlist)
+        for atomname in atomlist_i:
+            label = f'{resname_i}: {atomname}'
+            ax.bar(d_xarray[atomname], d_result[atomname], w_small, label=label, edgecolor='white', color=self.d_color[atomname])
+        ax.set_ylabel(self.get_ylabel(mode_id_strand))
+        ax.set_xlabel('Mode id, $i$')
+        ax.set_xticks(xticks)
+        ax.set_xticklabels(xticklabels)
+        ax.legend(ncol=1, loc='center right', bbox_to_anchor=bbox_to_anchor)
+        ax.set_title(self.get_title_by_resname_i_resname_j(resname_i, resname_j))
+        if ylim is not None:
+            ax.set_ylim(ylim)
+        if assist_lines is not None:
+            for yvalue in assist_lines:
+                ax.axhline(yvalue, color='grey', alpha=0.2)
+
     def get_ylabel(self, mode_id):
         return r'Decomposed $\lambda_{' + f'{mode_id}' + r'}$ (kcal/mol/Å$^2$)'
 
@@ -222,6 +305,12 @@ class PairImportance(AtomImportance):
         for atomname1 in atomlist:
             d_atomlist[atomname1] = [atomname2 for atomname2 in atomlist_fordelete]
             atomlist_fordelete.remove(atomname1)
+        return d_atomlist
+
+    def get_d_atomlist_by_atomlist_ij(self, atomlist_i, atomlist_j):
+        d_atomlist = dict()
+        for atomname1 in atomlist_i:
+            d_atomlist[atomname1] = [atomname2 for atomname2 in atomlist_j]
         return d_atomlist
 
     def get_d_xarray(self, atomlist, d_atomlist, w_small, w_big):
@@ -251,7 +340,18 @@ class PairImportance(AtomImportance):
             for idx, atomname2 in enumerate(d_atomlist[atomname1]):
                 q = self.g_agent.get_eigenvector_by_id(mode_id)
                 A_mat = self.g_agent.get_A_by_atomname1_atomname2(atomname1, atomname2, strandid)
-                qTDq = np.dot(q.T, np.dot(A_mat, q))
-                d_result[atomname1][idx] = qTDq
+                qTAq = np.dot(q.T, np.dot(A_mat, q))
+                d_result[atomname1][idx] = qTAq
+        return d_result
+
+    def get_d_result_by_resnames(self, atomlist, d_atomlist, strandid, resname_i, resname_j, mode_id):
+        d_result = dict()
+        for atomname1 in atomlist:
+            d_result[atomname1] = np.zeros(len(d_atomlist[atomname1]))
+            for idx, atomname2 in enumerate(d_atomlist[atomname1]):
+                q = self.g_agent.get_eigenvector_by_id(mode_id)
+                A_mat = self.g_agent.get_A_by_atomname1_atomname2_by_resnames(atomname1, atomname2, resname_i, resname_j, strandid)
+                qTAq = np.dot(q.T, np.dot(A_mat, q))
+                d_result[atomname1][idx] = qTAq
         return d_result
 
