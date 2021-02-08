@@ -114,9 +114,9 @@ class BaseStackImportanceAgent:
 
     def vmd_show_g_tract_single_G(self):
         resid = 7
-        bigatomlist = [['C6'], ['C4'], ['N1'], ['O6'], ['C2', 'N2', 'N3', 'C4', 'C5', 'N7', 'C8', 'N9']]
-        colorid_list = [0, 1, 0, 1, 5]
-        cpkradius_list = [1.2, 1.2, 0.9, 0.9, 0.5]
+        bigatomlist = [['C6', 'C4'], ['N1', 'N3'], ['C2', 'N2', 'O6', 'C4', 'C5', 'N7', 'C8', 'N9']]
+        colorid_list = [0, 0, 5]
+        cpkradius_list = [1.2, 0.9, 0.5]
         self.vmd_open_perfect_gro()
         lines = ['mol delrep 0 0']
         lines += self.vmd_add_resid(resid)
@@ -198,9 +198,9 @@ class BaseStackImportanceAgent:
 
     def vmd_show_ctct_single_A(self):
         resid = 27
-        bigatomlist = [['C6'], ['C5'], ['C4'], ['C2', 'N3', 'N1', 'C6', 'N6', 'N7', 'C8', 'N9']]
-        colorid_list = [0, 1, 1, 5]
-        cpkradius_list = [1.2, 1.0, 0.7, 0.5]
+        bigatomlist = [['C6'], ['C5'], ['C4', 'C2', 'N3', 'N1', 'C6', 'N6', 'N7', 'C8', 'N9']]
+        colorid_list = [0, 1, 5]
+        cpkradius_list = [1.2, 1.0, 0.5]
         self.vmd_open_perfect_gro()
         lines = ['mol delrep 0 0']
         lines += self.vmd_add_resid(resid)
@@ -212,9 +212,9 @@ class BaseStackImportanceAgent:
 
     def vmd_show_ctct_single_G(self):
         resid = 28
-        bigatomlist = [['C6'], ['C4'], ['N1', 'C5'], ['N3', 'C2', 'O6', 'N2', 'C4', 'N7', 'C8', 'N9']]
-        colorid_list = [0, 1, 0, 5]
-        cpkradius_list = [1.2, 1.2, 0.7, 0.5]
+        bigatomlist = [['C6', 'N1'], ['C4'], ['N3', 'C5', 'C2', 'O6', 'N2', 'C4', 'N7', 'C8', 'N9']]
+        colorid_list = [0, 1, 5]
+        cpkradius_list = [1.2, 1.0, 0.5]
         self.vmd_open_perfect_gro()
         lines = ['mol delrep 0 0']
         lines += self.vmd_add_resid(resid)
@@ -460,12 +460,12 @@ class BaseStackImportanceAgent:
         self.write_tcl_out(tcl_out, lines)
         self.print_tga_out(f'{self.host}_CT_pair')
 
-    def vmd_show_CTCT_GA_pair(self):
+    def vmd_show_CTCT_GA_pair1(self):
         u = MDAnalysis.Universe(self.perferct_gro, self.perferct_gro)
         resid_i = 22
         resid_j = 23
-        atompair_list = [('C4', 'C5'), ('N1', 'C6')]
-        radius_list = [0.15, 0.1]
+        atompair_list = [('C4', 'C5')]
+        radius_list = [0.15]
         color_list = [1] * len(atompair_list)
         self.vmd_open_perfect_gro()
         lines = ['mol delrep 0 0']
@@ -478,7 +478,27 @@ class BaseStackImportanceAgent:
             lines += temp_lines
         tcl_out = path.join(self.tcl_folder, 'show_basestack_pair.tcl')
         self.write_tcl_out(tcl_out, lines)
-        self.print_tga_out(f'{self.host}_GA_pair')
+        self.print_tga_out(f'{self.host}_GA_pair1')
+
+    def vmd_show_CTCT_GA_pair2(self):
+        u = MDAnalysis.Universe(self.perferct_gro, self.perferct_gro)
+        resid_i = 22
+        resid_j = 23
+        atompair_list = [('C6', 'C6'), ('N1', 'C6')]
+        radius_list = [0.16, 0.08]
+        color_list = [0] * len(atompair_list)
+        self.vmd_open_perfect_gro()
+        lines = ['mol delrep 0 0']
+        lines += self.vmd_add_resid_cpk_color_by_name(resid_i)
+        lines += self.vmd_add_resid_cpk_color_by_name(resid_j)
+        for atompair, radius, color in zip(atompair_list, radius_list, color_list):
+            positions = self.get_pair_positions_by_resid_names(u, resid_i, resid_j, atompair[0], atompair[1])
+            temp_lines = [f'graphics 0 color {color}',
+                          self.__get_draw_edge_line(positions, 0, 1, radius)]
+            lines += temp_lines
+        tcl_out = path.join(self.tcl_folder, 'show_basestack_pair.tcl')
+        self.write_tcl_out(tcl_out, lines)
+        self.print_tga_out(f'{self.host}_GA_pair2')
 
     def vmd_show_TGTG_GT_pair(self):
         u = MDAnalysis.Universe(self.perferct_gro, self.perferct_gro)

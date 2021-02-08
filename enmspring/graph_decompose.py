@@ -223,6 +223,12 @@ class AtomImportance:
 
 class PairImportance(AtomImportance):
 
+    def plot_lambda_qTAq_respective_atoms_single_mode(self, figsize, strandid, mode_id_strand, bbox_to_anchor, ylim=None, assist_lines=None):
+        mode_id_molecule = self.d_strand[strandid][mode_id_strand-1]
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize)
+        self.plot_lambda_qTAq_respective_atoms_one_mode(ax, strandid, mode_id_molecule, mode_id_strand, bbox_to_anchor, ylim, assist_lines)
+        return fig, ax
+
     def plot_lambda_qTAq_respective_atoms_five_modes(self, figsize, strandid, start_mode, end_mode, bbox_to_anchor, ylim=None, assist_lines=None):
         mode_id_list_strand = list(range(start_mode, end_mode+1))
         mode_id_list_molecule = self.d_strand[strandid][start_mode:end_mode+1]

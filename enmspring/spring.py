@@ -4,6 +4,93 @@ import MDAnalysis
 from enmspring import ic_table
 from enmspring import pairtype
 from enmspring.miscell import check_dir_exist_and_make
+from enmspring.k_b0_util import get_df_by_filter_st, get_df_by_filter_bp, get_central_bps_df
+
+class BigTrajAgent:
+    start_time = 0
+    end_time = 5000 # 5000 ns
+    interval_time = 1000 # unit: ns
+    n_bp = 21
+    cutoff = 4.7
+    clean_criteria = 1e-3
+    interactions = ['other', 'backbone', 'stack', 'sugar', 'HB']
+
+    def __init__(self, host, type_na, bigtraj_folder, only_central):
+        self.host = host
+        self.type_na = type_na
+        self.bigtraj_folder = bigtraj_folder
+        self.only_central = only_central
+        self.time_list, self.mdnum_list = self.get_time_list()
+        self.d_smallagents = self.get_all_small_agents()
+
+        self.d_df_st = dict()
+        self.d_df_hb = dict()
+        
+    def get_time_list(self):
+        middle_interval = int(self.interval_time/2)
+        time_list = list()
+        mdnum_list = list()
+        mdnum1 = 1
+        for time1 in range(self.start_time, self.end_time, middle_interval):
+            time2 = time1 + self.interval_time
+            if time2 <= self.end_time:
+                time_list.append((time1, time2))
+                mdnum_list.append((mdnum1, mdnum1+9))
+            mdnum1 += 5
+        return time_list, mdnum_list
+
+    def get_all_small_agents(self):
+        d_smallagents = dict()
+        for time1, time2 in self.time_list:
+            time_label = f'{time1}_{time2}'
+            d_smallagents[(time1,time2)] = SmallTrajSpring(self.bigtraj_folder, self.host, self.type_na, time_label, self.n_bp)
+        return d_smallagents
+
+    def set_required_dictionaries(self):
+        for time1, time2 in self.time_list:
+            self.d_smallagents[(time1,time2)].set_mda_universe()
+            self.d_smallagents[(time1,time2)].set_required_map()
+
+    def make_all_k_b0_pairtype_df(self):
+        for time1, time2 in self.time_list:
+            spring_obj = self.d_smallagents[(time1,time2)]
+            df = spring_obj.make_k_b0_pairtype_df_given_cutoff(self.cutoff)
+            mask = df['k'] > self.clean_criteria
+            df_1 = df[mask]
+            print(f'For {time1}_{time2}')
+            for interaction in self.interactions:
+                mask = df_1['Big_Category'] == interaction
+                df_2 = df_1[mask]
+                n_bonds = df_2.shape[0]
+                print(f'There are {n_bonds} {interaction}-bonds')
+            print('\n')
+
+    def read_all_k_b0_pairtype_df(self):
+        for time1, time2 in self.time_list:
+            spring_obj = self.d_smallagents[(time1,time2)]
+            spring_obj.read_k_b0_pairtype_df_given_cutoff(self.cutoff, self.only_central)
+
+    def put_all_df_st_into_dict(self):
+        for time1, time2 in self.time_list:
+            spring_obj = self.d_smallagents[(time1,time2)]
+            self.d_df_st[(time1,time2)] = spring_obj.get_df_st()
+
+    def put_all_df_hb_into_dict(self):
+        for time1, time2 in self.time_list:
+            spring_obj = self.d_smallagents[(time1,time2)]
+            self.d_df_hb[(time1,time2)] = spring_obj.get_df_hb()
+
+    def get_k_st_list(self):
+        k_st_list = list()
+        for time1, time2 in self.time_list:
+            k_st_list += self.d_df_st[(time1,time2)]['k'].tolist()
+        return k_st_list
+
+    def get_k_hb_list(self):
+        k_hb_list = list()
+        for time1, time2 in self.time_list:
+            k_hb_list += self.d_df_hb[(time1,time2)]['k'].tolist()
+        return k_hb_list
 
 class Spring:
     col_names = ['PairID', 'PairType', 'Big_Category', 'Strand_i', 'Resid_i',  
@@ -152,3 +239,80 @@ class Spring:
             d9[cgname] = atom.mass
             atomid += 1
         return d1, d2, d3, d4, d5, d6, d7, d8, d9
+
+class SmallTrajSpring(Spring):
+    def __init__(self, rootfolder, host, type_na, time_label, n_bp):
+        self.rootfolder = rootfolder
+        self.host = host
+        self.type_na = type_na
+        self.time_label = time_label
+        self.n_bp = n_bp
+        self.host_folder = path.join(rootfolder, host)
+        self.na_folder = path.join(self.host_folder, type_na)
+        self.time_folder = path.join(self.na_folder, time_label)
+
+        self.prm_folder = path.join(self.time_folder, 'data')
+        self.input_folder = path.join(self.time_folder, 'input')
+        self.crd = path.join(self.input_folder, '{0}.nohydrogen.crd'.format(self.type_na))
+        self.pd_dfs_folder = path.join(self.time_folder, 'pd_dfs')
+        self.df_all_k = None
+        self.initialize_folders()
+
+        self.u = None
+        self.map = None
+        self.inverse_map = None
+        self.residues_map = None
+        self.atomid_map = None
+        self.atomid_map_inverse = None
+        self.atomname_map = None
+        self.strandid_map = None
+        self.resid_map = None
+        self.mass_map = None
+
+    def read_k_b0_pairtype_df_given_cutoff(self, cutoff, only_central):
+        f_in = path.join(self.pd_dfs_folder, f'pairtypes_k_b0_cutoff_{cutoff:.2f}.csv')
+        if only_central:
+            self.df_all_k = get_central_bps_df(pd.read_csv(f_in))
+        else:
+            self.df_all_k = pd.read_csv(f_in)
+        print(f'Read {f_in} into df_all_k')
+
+    def get_df_st(self):
+        criteria = 1e-3
+        df1 = get_df_by_filter_st(self.df_all_k, 'st')
+        mask = (df1['k'] > criteria)
+        print("Read Dataframe of stacking: df_st")
+        return df1[mask]
+
+    def get_df_hb(self):
+        df1 = get_df_by_filter_bp(self.df_all_k, 'hb')
+        df2 = self.__read_df_at_type3()
+        if len(df2) == 0:
+            df_result = df1
+        else:
+            df3 = pd.concat([df1,df2])
+            df3 = df3.sort_values(by=['Resid_i'])
+            df3 = df3.reset_index()
+            df_result = df3
+        print("Read Dataframe of HB: df_hb")
+        return df_result
+
+    def __read_df_at_type3(self):
+        df1 = get_df_by_filter_bp(self.df_all_k, 'bp1')
+        df2_1 = self.__filter_C2_O2(df1)
+        df2_2 = self.__filter_O2_C2(df1)
+        return pd.concat([df2_1, df2_2])
+
+    def __filter_C2_O2(self, df):
+        mask0 = (df['Atomname_i'] == 'C2')
+        df0 = df[mask0]
+        mask1 = (df0['Atomname_j'] == 'O2')
+        return df0[mask1]
+
+    def __filter_O2_C2(self, df):
+        mask0 = (df['Atomname_i'] == 'O2')
+        df0 = df[mask0]
+        mask1 = (df0['Atomname_j'] == 'C2')
+        return df0[mask1]
+
+
