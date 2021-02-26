@@ -1,6 +1,7 @@
 from os import path
 from shutil import copyfile
 import numpy as np
+import pandas as pd
 import MDAnalysis
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -443,6 +444,7 @@ class GraphAgent:
         return 'segid {0} and resid {1} and name {2}'.format(atom.segid, atom.resid, atom.name)
 
 class Stack(GraphAgent):
+
     def __init__(self, host, rootfolder):
         super().__init__(host, rootfolder)
         self.df_st = self.__read_df_st()
@@ -474,6 +476,29 @@ class Stack(GraphAgent):
         lines = ['graphics 0 color 1\n', 'graphics 0 material AOShiny\n']
         lines = self.process_lines_for_edges_tcl(lines, self.df_st, radius=radius)
         self.write_lines_to_tcl_out(lines, tcl_out)
+
+    def get_df_qTAq_for_vmd_draw(self, eigv_id):
+        df = self.df_st
+        columns_qTAq = ['Strand_i', 'Resid_i', 'Atomname_i', 'Strand_j', 'Resid_j', 'Atomname_j']
+        d_qTAq = {col_name: df[col_name].tolist() for col_name in columns_qTAq}
+        d_qTAq['qTAq'] = np.zeros(df.shape[0])
+        q = self.get_eigenvector_by_id(eigv_id)
+        for idx, atomids in enumerate(zip(df['Atomid_i'], df['Atomid_j'])):
+            atomid_i , atomid_j = atomids
+            A = self.get_sele_A_by_idx(atomid_i, atomid_j)
+            d_qTAq['qTAq'][idx] = np.dot(q.T, np.dot(A, q))
+        df_result = pd.DataFrame(d_qTAq)
+        columns_qTAq.append('qTAq')
+        return df_result[columns_qTAq]
+
+    def get_sele_A_by_idx(self, atomid_i, atomid_j):
+        sele_A = np.zeros((self.n_node, self.n_node))
+        idx_i = self.d_idx[self.atomid_map_inverse[atomid_i]]
+        idx_j = self.d_idx[self.atomid_map_inverse[atomid_j]]
+        sele_A[idx_i, idx_j] = self.adjacency_mat[idx_i, idx_j]
+        i_lower = np.tril_indices(self.n_node, -1)
+        sele_A[i_lower] = sele_A.transpose()[i_lower]
+        return sele_A
         
     def __read_df_st(self):
         criteria = 1e-3
