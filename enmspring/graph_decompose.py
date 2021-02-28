@@ -2,7 +2,7 @@ from os import path
 import matplotlib.pyplot as plt
 import numpy as np
 from enmspring.graphs import hosts
-from enmspring.graphs import Stack
+from enmspring.graphs import Stack, BackboneRibose
 
 class SixStack:
     d_titles = {'a_tract_21mer': ('A-Tract: (AA)', 'A-Tract: (TT)'), 'g_tract_21mer': ('G-Tract: (GG)', 'G-Tract: (CC)'),
@@ -362,11 +362,13 @@ class PairImportance(AtomImportance):
         return d_result
 
 class Bar4Plot:
-    hosts = ['a_tract_21mer', 'atat_21mer', 'g_tract_21mer', 'gcgc_21mer']
+    #hosts = ['a_tract_21mer', 'atat_21mer', 'g_tract_21mer', 'gcgc_21mer']
+    hosts = ['a_tract_21mer', 'g_tract_21mer']
     d_colors = {'a_tract_21mer': 'blue', 'atat_21mer': 'cyan', 
                 'g_tract_21mer': 'red', 'gcgc_21mer': 'magenta'}
     abbr_hosts = {'a_tract_21mer': 'poly(dA:dT)', 'gcgc_21mer': 'poly(GC)', 
-                  'g_tract_21mer': 'poly(dG:dC)', 'atat_21mer': 'poly(AT)'} 
+                  'g_tract_21mer': 'poly(dG:dC)', 'atat_21mer': 'poly(AT)'}
+    d_title = {'STRAND1': 'Purine strand', 'STRAND2': 'Pyrimidine strand'}
 
     def __init__(self, rootfolder):
         self.rootfolder = rootfolder
@@ -380,9 +382,9 @@ class Bar4Plot:
             d_g_agent[host].pre_process()
         return d_g_agent
 
-    def plot_main(self, figsize, small_width, big_width, n_modes):
+    def plot_main(self, figsize, small_width, big_width, n_modes, strandid):
         fig, ax = plt.subplots(ncols=1, nrows=1, figsize=figsize)
-        d_ylist = self.get_d_ylist(n_modes)
+        d_ylist = self.get_d_ylist(n_modes, strandid)
         d_xlist, xticks = self.get_d_xlist_xticks(small_width, big_width, n_modes)
         for host in self.hosts:
             xlist = d_xlist[host]
@@ -392,19 +394,20 @@ class Bar4Plot:
         ax.set_xticklabels(range(1, n_modes+1))
         ax.set_xlabel("Mode index, $i$", fontsize=14)
         ax.set_ylabel(r'$q_{i}^{T}\mathbf{A}q_{i}$' + ' (kcal/mol/Å$^2$)', fontsize=14)
+        ax.set_title(self.d_title[strandid], fontsize=14)
         ax.legend(frameon=False, fontsize=14, ncol=2)
         ax.tick_params(axis='both', labelsize=12)
         ax.set_ylim(0, 10)
         return fig, ax
 
-    def get_d_ylist(self, n_modes):
+    def get_d_ylist(self, n_modes, strandid):
         d_ylist = dict()
         for host in self.hosts:
             d_ylist[host] = list()
             A = self.d_g_agent[host].adjacency_mat
             for i in range(n_modes):
                 mode_id = i + 1
-                q = self.d_g_agent[host].get_eigenvector_by_id(mode_id)
+                q = self.d_g_agent[host].get_eigvector_by_strand(strandid, mode_id)[0]
                 d_ylist[host].append(np.dot(q.T, np.dot(A, q)))
         return d_ylist
 
@@ -416,5 +419,33 @@ class Bar4Plot:
         for j, host in enumerate(self.hosts):
             x_start = x_ref + j * small_width
             d_xlist[host] = [x_start + i * interval for i in range(n_modes)]
-        xticks = [x_ref + i * interval + 1.5 * small_width for i in range(n_modes)]
+        xticks = [x_ref + i * interval + 0.5 * small_width for i in range(n_modes)]
         return d_xlist, xticks
+
+
+class Bar4PlotBackbone(Bar4Plot):
+
+    def plot_main(self, figsize, small_width, big_width, n_modes, strandid):
+        fig, ax = plt.subplots(ncols=1, nrows=1, figsize=figsize)
+        d_ylist = self.get_d_ylist(n_modes, strandid)
+        d_xlist, xticks = self.get_d_xlist_xticks(small_width, big_width, n_modes)
+        for host in self.hosts:
+            xlist = d_xlist[host]
+            ylist = d_ylist[host]
+            ax.bar(xlist, ylist, small_width, color=self.d_colors[host], label=self.abbr_hosts[host])
+        ax.set_xticks(xticks)
+        ax.set_xticklabels(range(1, n_modes+1))
+        ax.set_xlabel("Mode index, $i$", fontsize=14)
+        ax.set_ylabel(r'$q_{i}^{T}\mathbf{A}q_{i}$' + ' (kcal/mol/Å$^2$)', fontsize=14)
+        ax.set_title(self.d_title[strandid], fontsize=14)
+        ax.legend(frameon=False, fontsize=14, ncol=2)
+        ax.tick_params(axis='both', labelsize=12)
+        ax.set_ylim(0, 200)
+        return fig, ax
+
+    def get_d_g_agent(self):
+        d_g_agent = dict()
+        for host in self.hosts:
+            d_g_agent[host] = BackboneRibose(host, self.rootfolder)
+            d_g_agent[host].pre_process()
+        return d_g_agent

@@ -590,7 +590,7 @@ class StackWholeMolecule(BaseStackImportanceAgent):
     def __init__(self, host, rootfolder, pic_out_folder):
         super().__init__(host, rootfolder, pic_out_folder)
 
-    def vmd_show_whole_stack(self, df_in, radius):
+    def vmd_show_whole_stack(self, df_in, radius, eigv_id, strandid):
         u = MDAnalysis.Universe(self.perferct_gro, self.perferct_gro)
         zipobj = zip(df_in['Strand_i'].tolist(), df_in['Resid_i'].tolist(), df_in['Atomname_i'].tolist(), df_in['Strand_j'].tolist(), df_in['Resid_j'].tolist(), df_in['Atomname_j'].tolist())
         self.vmd_open_perfect_gro()
@@ -604,10 +604,10 @@ class StackWholeMolecule(BaseStackImportanceAgent):
                 gro_resid_i = resid_i
                 gro_resid_j = resid_j
             positions = self.get_pair_positions_by_resid_names(u, gro_resid_i, gro_resid_j, atomname_i, atomname_j)
-            lines += [self.__get_draw_edge_line(positions, 0, 1, radius)]
+            lines += [self.get_draw_edge_line(positions, 0, 1, radius)]
         tcl_out = path.join(self.tcl_folder, 'show_basestack_pair.tcl')
         self.write_tcl_out(tcl_out, lines)
-        self.print_tga_out(f'{self.host}_stack_whole_mol')
+        self.print_tga_out(f'{self.host}_stack_{strandid}_{eigv_id}')
 
     def get_initial_lines(self):
         return ['mol delrep 0 0',
@@ -617,7 +617,7 @@ class StackWholeMolecule(BaseStackImportanceAgent):
                 'mol material Transparent',
                 'mol addrep 0']
 
-    def __get_draw_edge_line(self, positions, atomid1, atomid2, radius):
+    def get_draw_edge_line(self, positions, atomid1, atomid2, radius):
         str_0 = 'graphics 0 cylinder {'
         str_1 = f'{positions[atomid1,0]:.3f} {positions[atomid1,1]:.3f} {positions[atomid1,2]:.3f}'
         str_2 = '} {'
@@ -625,3 +625,23 @@ class StackWholeMolecule(BaseStackImportanceAgent):
         str_4 = '} '
         str_5 = f'radius {radius:.2f}\n'
         return str_0 + str_1 + str_2 + str_3 + str_4 + str_5
+
+class BackboneWholeMolecule(StackWholeMolecule):
+    def vmd_show_whole_backbone(self, df_in, radius, eigv_id, strandid):
+        u = MDAnalysis.Universe(self.perferct_gro, self.perferct_gro)
+        zipobj = zip(df_in['Strand_i'].tolist(), df_in['Resid_i'].tolist(), df_in['Atomname_i'].tolist(), df_in['Strand_j'].tolist(), df_in['Resid_j'].tolist(), df_in['Atomname_j'].tolist())
+        self.vmd_open_perfect_gro()
+        lines = self.get_initial_lines()
+        lines += [f'graphics 0 color 1'] # red color
+        for strand_i, resid_i, atomname_i, strand_j, resid_j, atomname_j in zipobj:
+            if (strand_i == 'STRAND2') and (strand_j == 'STRAND2'):
+                gro_resid_i = resid_i + 21
+                gro_resid_j = resid_j + 21
+            else:
+                gro_resid_i = resid_i
+                gro_resid_j = resid_j
+            positions = self.get_pair_positions_by_resid_names(u, gro_resid_i, gro_resid_j, atomname_i, atomname_j)
+            lines += [self.get_draw_edge_line(positions, 0, 1, radius)]
+        tcl_out = path.join(self.tcl_folder, 'show_backbone_pair.tcl')
+        self.write_tcl_out(tcl_out, lines)
+        self.print_tga_out(f'{self.host}_backbone_{strandid}_{eigv_id}')

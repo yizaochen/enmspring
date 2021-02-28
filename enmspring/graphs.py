@@ -477,12 +477,12 @@ class Stack(GraphAgent):
         lines = self.process_lines_for_edges_tcl(lines, self.df_st, radius=radius)
         self.write_lines_to_tcl_out(lines, tcl_out)
 
-    def get_df_qTAq_for_vmd_draw(self, eigv_id):
+    def get_df_qTAq_for_vmd_draw(self, eigv_id, strandid):
         df = self.df_st
         columns_qTAq = ['Strand_i', 'Resid_i', 'Atomname_i', 'Strand_j', 'Resid_j', 'Atomname_j']
         d_qTAq = {col_name: df[col_name].tolist() for col_name in columns_qTAq}
         d_qTAq['qTAq'] = np.zeros(df.shape[0])
-        q = self.get_eigenvector_by_id(eigv_id)
+        q = self.get_eigvector_by_strand(strandid, eigv_id)[0]
         for idx, atomids in enumerate(zip(df['Atomid_i'], df['Atomid_j'])):
             atomid_i , atomid_j = atomids
             A = self.get_sele_A_by_idx(atomid_i, atomid_j)
@@ -541,6 +541,16 @@ class onlyHB(StackHB):
 
 
 class BackboneRibose(GraphAgent):
+    def pre_process(self):
+        self.build_node_list()
+        self.initialize_three_mat()
+        self.build_adjacency_from_pp_r()
+        self.build_degree_from_adjacency()
+        self.build_laplacian_by_adjacency_degree()
+        self.eigen_decompose()
+        self.set_benchmark_array()
+        self.set_strand_array()
+
     def build_node_list(self):
         node_list = list()
         d_idx = dict()
@@ -556,13 +566,46 @@ class BackboneRibose(GraphAgent):
         self.n_node = len(self.node_list)
         print(f"Thare are {self.n_node} nodes.")
 
+    def get_df_backbone_ribose(self):
+        for subcategory in ['PP0', 'PP1', 'PP2', 'PP3']:
+            df_backbone = get_df_by_filter_PP(self.df_all_k, subcategory)
+        #for subcategory in ['R0', 'R1']:
+        #    df_ribose = get_df_by_filter_R(self.df_all_k, subcategory)
+        #df_backbone_ribose = pd.concat([df_backbone, df_ribose])
+        criteria = 1e-3
+        mask = (df_backbone['k'] > criteria)
+        return df_backbone[mask]
+
+    def get_sele_A_by_idx(self, atomid_i, atomid_j):
+        sele_A = np.zeros((self.n_node, self.n_node))
+        idx_i = self.d_idx[self.atomid_map_inverse[atomid_i]]
+        idx_j = self.d_idx[self.atomid_map_inverse[atomid_j]]
+        sele_A[idx_i, idx_j] = self.adjacency_mat[idx_i, idx_j]
+        i_lower = np.tril_indices(self.n_node, -1)
+        sele_A[i_lower] = sele_A.transpose()[i_lower]
+        return sele_A
+
+    def get_df_qTAq_for_vmd_draw(self, eigv_id, strandid):
+        df = self.get_df_backbone_ribose()
+        columns_qTAq = ['Strand_i', 'Resid_i', 'Atomname_i', 'Strand_j', 'Resid_j', 'Atomname_j']
+        d_qTAq = {col_name: df[col_name].tolist() for col_name in columns_qTAq}
+        d_qTAq['qTAq'] = np.zeros(df.shape[0])
+        q = self.get_eigvector_by_strand(strandid, eigv_id)[0]
+        for idx, atomids in enumerate(zip(df['Atomid_i'], df['Atomid_j'])):
+            atomid_i , atomid_j = atomids
+            A = self.get_sele_A_by_idx(atomid_i, atomid_j)
+            d_qTAq['qTAq'][idx] = np.dot(q.T, np.dot(A, q))
+        df_result = pd.DataFrame(d_qTAq)
+        columns_qTAq.append('qTAq')
+        return df_result[columns_qTAq]
+
     def build_adjacency_from_pp_r(self):
         for subcategory in ['PP0', 'PP1', 'PP2', 'PP3']:
             df_sele = get_df_by_filter_PP(self.df_all_k, subcategory)
             self.set_adjacency_by_df(df_sele)
-        for subcategory in ['R0', 'R1']:
-            df_sele = get_df_by_filter_R(self.df_all_k, subcategory)
-            self.set_adjacency_by_df(df_sele)
+        #for subcategory in ['R0', 'R1']:
+        #    df_sele = get_df_by_filter_R(self.df_all_k, subcategory)
+        #    self.set_adjacency_by_df(df_sele)
         self.make_adjacency_symmetry()
 
     def set_benchmark_array(self):
