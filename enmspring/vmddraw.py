@@ -645,3 +645,33 @@ class BackboneWholeMolecule(StackWholeMolecule):
         tcl_out = path.join(self.tcl_folder, 'show_backbone_pair.tcl')
         self.write_tcl_out(tcl_out, lines)
         self.print_tga_out(f'{self.host}_backbone_{strandid}_{eigv_id}')
+
+class HBWholeMolecule(StackWholeMolecule):
+    def vmd_show_whole_HB(self, df_in, radius, eigv_id):
+        u = MDAnalysis.Universe(self.perferct_gro, self.perferct_gro)
+        zipobj = zip(df_in['Strand_i'].tolist(), df_in['Resid_i'].tolist(), df_in['Atomname_i'].tolist(), df_in['Strand_j'].tolist(), df_in['Resid_j'].tolist(), df_in['Atomname_j'].tolist())
+        self.vmd_open_perfect_gro()
+        lines = self.get_initial_lines()
+        lines += [f'graphics 0 color 1'] # red color
+        for strand_i, resid_i, atomname_i, strand_j, resid_j, atomname_j in zipobj:
+            if strand_i == 'STRAND2':
+                gro_resid_i = resid_i + 21
+            else:
+                gro_resid_i = resid_i
+            if strand_j == 'STRAND2':
+                gro_resid_j = resid_j + 21
+            else:
+                gro_resid_j = resid_j
+            positions = self.get_pair_positions_by_resid_names(u, gro_resid_i, gro_resid_j, atomname_i, atomname_j)
+            lines += [self.get_draw_edge_line(positions, 0, 1, radius)]
+        tcl_out = path.join(self.tcl_folder, 'show_backbone_pair.tcl')
+        self.write_tcl_out(tcl_out, lines)
+        self.print_tga_out(f'{self.host}_hb_{eigv_id}')
+
+    def get_initial_lines(self):
+        return ['mol delrep 0 0',
+                'mol color ColorID 2',
+                'mol representation Licorice 0.100000 12.000000 12.000000',
+                'mol selection all',
+                'mol material Transparent',
+                'mol addrep 0']

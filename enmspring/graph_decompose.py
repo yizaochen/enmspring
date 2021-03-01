@@ -2,7 +2,7 @@ from os import path
 import matplotlib.pyplot as plt
 import numpy as np
 from enmspring.graphs import hosts
-from enmspring.graphs import Stack, BackboneRibose
+from enmspring.graphs import Stack, BackboneRibose, onlyHB
 
 class SixStack:
     d_titles = {'a_tract_21mer': ('A-Tract: (AA)', 'A-Tract: (TT)'), 'g_tract_21mer': ('G-Tract: (GG)', 'G-Tract: (CC)'),
@@ -447,5 +447,43 @@ class Bar4PlotBackbone(Bar4Plot):
         d_g_agent = dict()
         for host in self.hosts:
             d_g_agent[host] = BackboneRibose(host, self.rootfolder)
+            d_g_agent[host].pre_process()
+        return d_g_agent
+
+class Bar4PlotHB(Bar4Plot):
+
+    def plot_main(self, figsize, small_width, big_width, n_modes, ylim=None):
+        fig, ax = plt.subplots(ncols=1, nrows=1, figsize=figsize)
+        d_ylist = self.get_d_ylist(n_modes)
+        d_xlist, xticks = self.get_d_xlist_xticks(small_width, big_width, n_modes)
+        for host in self.hosts:
+            xlist = d_xlist[host]
+            ylist = d_ylist[host]
+            ax.bar(xlist, ylist, small_width, color=self.d_colors[host], label=self.abbr_hosts[host])
+        ax.set_xticks(xticks)
+        ax.set_xticklabels(range(1, n_modes+1))
+        ax.set_xlabel("Mode index, $i$", fontsize=14)
+        ax.set_ylabel(r'$q_{i}^{T}\mathbf{A}q_{i}$' + ' (kcal/mol/Å$^2$)', fontsize=14)
+        ax.legend(frameon=False, fontsize=14, ncol=2)
+        ax.tick_params(axis='both', labelsize=12)
+        if ylim is not None:
+            ax.set_ylim(ylim)
+        return fig, ax
+
+    def get_d_ylist(self, n_modes):
+        d_ylist = dict()
+        for host in self.hosts:
+            d_ylist[host] = list()
+            A = self.d_g_agent[host].adjacency_mat
+            for i in range(n_modes):
+                mode_id = i + 1
+                q = self.d_g_agent[host].get_eigenvector_by_id(mode_id)
+                d_ylist[host].append(np.dot(q.T, np.dot(A, q)))
+        return d_ylist
+
+    def get_d_g_agent(self):
+        d_g_agent = dict()
+        for host in self.hosts:
+            d_g_agent[host] = onlyHB(host, self.rootfolder)
             d_g_agent[host].pre_process()
         return d_g_agent

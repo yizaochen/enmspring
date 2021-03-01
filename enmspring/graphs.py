@@ -528,6 +528,14 @@ class StackHB(Stack):
 
 
 class onlyHB(StackHB):
+    def pre_process(self):
+        self.build_node_list()
+        self.initialize_three_mat()
+        self.build_adjacency_from_df_hb()
+        self.build_degree_from_adjacency()
+        self.build_laplacian_by_adjacency_degree()
+        self.eigen_decompose()
+
     def build_adjacency_from_df_hb(self):
         d_hb_new = self.hb_agent.get_d_hb_contain_atomid_k_all_basepair()
         self.set_adjacency_by_d(d_hb_new)         
@@ -538,6 +546,42 @@ class onlyHB(StackHB):
         d_hb_new = self.hb_agent.get_d_hb_contain_atomid_k_all_basepair()
         lines = self.process_lines_for_edges_tcl(lines, d_hb_new, radius=radius)
         self.write_lines_to_tcl_out(lines, tcl_out)
+
+    def get_df_hb_new(self):
+        columns = ['Strand_i', 'Resid_i', 'Atomname_i', 'Atomid_i', 'Strand_j', 'Resid_j', 'Atomname_j', 'Atomid_j', 'k']
+        d_result = dict()
+        d_hb_new = self.hb_agent.get_d_hb_contain_atomid_k_all_basepair()
+        cgname_i_list = [self.atomid_map_inverse[atomid_i] for atomid_i in d_hb_new['Atomid_i']]
+        cgname_j_list = [self.atomid_map_inverse[atomid_j] for atomid_j in d_hb_new['Atomid_j']]
+        d_result['Strand_i'] = [self.strandid_map[cgname_i] for cgname_i in cgname_i_list]
+        d_result['Strand_j'] = [self.strandid_map[cgname_j] for cgname_j in cgname_j_list]
+        d_result['Resid_i'] = [self.resid_map[cgname_i] for cgname_i in cgname_i_list]
+        d_result['Resid_j'] = [self.resid_map[cgname_j] for cgname_j in cgname_j_list]
+        d_result['Atomname_i'] = [self.atomname_map[cgname_i] for cgname_i in cgname_i_list]
+        d_result['Atomname_j'] = [self.atomname_map[cgname_j] for cgname_j in cgname_j_list]
+        d_result['Atomid_i'] = d_hb_new['Atomid_i']
+        d_result['Atomid_j'] = d_hb_new['Atomid_j']
+        d_result['k'] = d_hb_new['k']
+
+        df_hb_new = pd.DataFrame(d_result)
+        criteria = 1e-3
+        mask = (df_hb_new['k'] > criteria)
+        df_hb_new = df_hb_new[mask]
+        return df_hb_new[columns]
+
+    def get_df_qTAq_for_vmd_draw(self, eigv_id):
+        df = self.get_df_hb_new()
+        columns_qTAq = ['Strand_i', 'Resid_i', 'Atomname_i', 'Strand_j', 'Resid_j', 'Atomname_j']
+        d_qTAq = {col_name: df[col_name].tolist() for col_name in columns_qTAq}
+        d_qTAq['qTAq'] = np.zeros(df.shape[0])
+        q = self.get_eigenvector_by_id(eigv_id)
+        for idx, atomids in enumerate(zip(df['Atomid_i'], df['Atomid_j'])):
+            atomid_i , atomid_j = atomids
+            A = self.get_sele_A_by_idx(atomid_i, atomid_j)
+            d_qTAq['qTAq'][idx] = np.dot(q.T, np.dot(A, q))
+        df_result = pd.DataFrame(d_qTAq)
+        columns_qTAq.append('qTAq')
+        return df_result[columns_qTAq]
 
 
 class BackboneRibose(GraphAgent):
