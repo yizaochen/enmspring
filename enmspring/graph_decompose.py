@@ -390,15 +390,27 @@ class Bar4Plot:
             xlist = d_xlist[host]
             ylist = d_ylist[host]
             ax.bar(xlist, ylist, small_width, color=self.d_colors[host], label=self.abbr_hosts[host])
+
         ax.set_xticks(xticks)
-        ax.set_xticklabels(range(1, n_modes+1))
-        ax.set_xlabel("Mode index, $i$", fontsize=14)
-        ax.set_ylabel(r'$q_{i}^{T}\mathbf{A}q_{i}$' + ' (kcal/mol/Å$^2$)', fontsize=14)
+        ax.set_xticklabels(self.get_xticklabels(n_modes, strandid))
+        ax.set_xlabel("eigenvector (mode) index", fontsize=14)
+        ax.set_ylabel('mechanical strength (kcal/mol/Å$^2$)', fontsize=14)
         ax.set_title(self.d_title[strandid], fontsize=14)
         ax.legend(frameon=False, fontsize=14, ncol=2)
         ax.tick_params(axis='both', labelsize=12)
         ax.set_ylim(0, 10)
         return fig, ax
+
+    def get_xticklabels(self, n_modes, strandid):
+        xticklabels = list()
+        for sele_id in range(1, n_modes+1):
+            for host in self.hosts:
+                if strandid == 'STRAND1':
+                    real_eigv_id = self.d_g_agent[host].strand1_array[sele_id-1]
+                else:
+                    real_eigv_id = self.d_g_agent[host].strand2_array[sele_id-1]
+                xticklabels.append(real_eigv_id)
+        return xticklabels
 
     def get_d_ylist(self, n_modes, strandid):
         d_ylist = dict()
@@ -419,9 +431,12 @@ class Bar4Plot:
         for j, host in enumerate(self.hosts):
             x_start = x_ref + j * small_width
             d_xlist[host] = [x_start + i * interval for i in range(n_modes)]
-        xticks = [x_ref + i * interval + 0.5 * small_width for i in range(n_modes)]
+        #xticks = [x_ref + i * interval + 0.5 * small_width for i in range(n_modes)]
+        xticks = list()
+        for i in range(n_modes):
+            for host in self.hosts:
+                xticks.append(d_xlist[host][i])
         return d_xlist, xticks
-
 
 class Bar4PlotBackbone(Bar4Plot):
 
@@ -462,8 +477,8 @@ class Bar4PlotHB(Bar4Plot):
             ax.bar(xlist, ylist, small_width, color=self.d_colors[host], label=self.abbr_hosts[host])
         ax.set_xticks(xticks)
         ax.set_xticklabels(range(1, n_modes+1))
-        ax.set_xlabel("Mode index, $i$", fontsize=14)
-        ax.set_ylabel(r'$q_{i}^{T}\mathbf{A}q_{i}$' + ' (kcal/mol/Å$^2$)', fontsize=14)
+        ax.set_xlabel("eigenvector (mode) index", fontsize=14)
+        ax.set_ylabel('mechanical strength (kcal/mol/Å$^2$)', fontsize=14)
         ax.legend(frameon=False, fontsize=14, ncol=2)
         ax.tick_params(axis='both', labelsize=12)
         if ylim is not None:
@@ -487,3 +502,14 @@ class Bar4PlotHB(Bar4Plot):
             d_g_agent[host] = onlyHB(host, self.rootfolder)
             d_g_agent[host].pre_process()
         return d_g_agent
+
+    def get_d_xlist_xticks(self, small_width, big_width, n_modes):
+        d_xlist = dict()
+        xticks = list()
+        x_ref = 0
+        interval = (self.n_hosts - 1) * small_width + big_width
+        for j, host in enumerate(self.hosts):
+            x_start = x_ref + j * small_width
+            d_xlist[host] = [x_start + i * interval for i in range(n_modes)]
+        xticks = [x_ref + i * interval + 0.5 * small_width for i in range(n_modes)]
+        return d_xlist, xticks
