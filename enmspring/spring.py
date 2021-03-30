@@ -4,7 +4,7 @@ import MDAnalysis
 from enmspring import ic_table
 from enmspring import pairtype
 from enmspring.miscell import check_dir_exist_and_make
-from enmspring.k_b0_util import get_df_by_filter_st, get_df_by_filter_bp, get_central_bps_df
+from enmspring.k_b0_util import get_df_by_filter_st, get_df_by_filter_bp, get_central_bps_df, get_df_by_filter_PP, get_df_by_filter_R, get_df_by_filter_RB
 
 class BigTrajAgent:
     start_time = 0
@@ -23,6 +23,8 @@ class BigTrajAgent:
         self.time_list, self.mdnum_list = self.get_time_list()
         self.d_smallagents = self.get_all_small_agents()
 
+        self.d_df_backbone = dict()
+        self.d_df_ribose = dict()
         self.d_df_st = dict()
         self.d_df_hb = dict()
         
@@ -70,6 +72,16 @@ class BigTrajAgent:
             spring_obj = self.d_smallagents[(time1,time2)]
             spring_obj.read_k_b0_pairtype_df_given_cutoff(self.cutoff, self.only_central)
 
+    def put_all_df_backbone_into_dict(self):
+        for time1, time2 in self.time_list:
+            spring_obj = self.d_smallagents[(time1,time2)]
+            self.d_df_backbone[(time1,time2)] = spring_obj.get_df_backbone()
+
+    def put_all_df_ribose_into_dict(self):
+        for time1, time2 in self.time_list:
+            spring_obj = self.d_smallagents[(time1,time2)]
+            self.d_df_ribose[(time1,time2)] = spring_obj.get_df_ribose()
+
     def put_all_df_st_into_dict(self):
         for time1, time2 in self.time_list:
             spring_obj = self.d_smallagents[(time1,time2)]
@@ -79,6 +91,18 @@ class BigTrajAgent:
         for time1, time2 in self.time_list:
             spring_obj = self.d_smallagents[(time1,time2)]
             self.d_df_hb[(time1,time2)] = spring_obj.get_df_hb()
+
+    def get_k_backbone_list(self):
+        k_backbone_list = list()
+        for time1, time2 in self.time_list:
+            k_backbone_list += self.d_df_backbone[(time1,time2)]['k'].tolist()
+        return k_backbone_list
+
+    def get_k_ribose_list(self):
+        k_ribose_list = list()
+        for time1, time2 in self.time_list:
+            k_ribose_list += self.d_df_ribose[(time1,time2)]['k'].tolist()
+        return k_ribose_list
 
     def get_k_st_list(self):
         k_st_list = list()
@@ -277,11 +301,32 @@ class SmallTrajSpring(Spring):
             self.df_all_k = pd.read_csv(f_in)
         print(f'Read {f_in} into df_all_k')
 
+    def get_df_backbone(self):
+        criteria = 1e-3
+        df_PP0 = get_df_by_filter_PP(self.df_all_k, 'PP0')
+        df_PP1 = get_df_by_filter_PP(self.df_all_k, 'PP1')
+        df_PP2 = get_df_by_filter_PP(self.df_all_k, 'PP2')
+        df_PP3 = get_df_by_filter_PP(self.df_all_k, 'PP3')
+        df_concat = pd.concat([df_PP0, df_PP1, df_PP2, df_PP3])
+        mask = (df_concat['k'] > criteria)
+        return df_concat[mask]
+
+    def get_df_ribose(self):
+        criteria = 1e-3
+        df_R0 = get_df_by_filter_R(self.df_all_k, 'R0')
+        df_R1 = get_df_by_filter_R(self.df_all_k, 'R1')
+        df_RB0 = get_df_by_filter_RB(self.df_all_k, 'RB0')
+        df_RB1 = get_df_by_filter_RB(self.df_all_k, 'RB1')
+        df_RB2 = get_df_by_filter_RB(self.df_all_k, 'RB2')
+        df_RB3 = get_df_by_filter_RB(self.df_all_k, 'RB3')
+        df_concat = pd.concat([df_R0, df_R1, df_RB0, df_RB1, df_RB2, df_RB3])
+        mask = (df_concat['k'] > criteria)
+        return df_concat[mask]
+
     def get_df_st(self):
         criteria = 1e-3
         df1 = get_df_by_filter_st(self.df_all_k, 'st')
         mask = (df1['k'] > criteria)
-        print("Read Dataframe of stacking: df_st")
         return df1[mask]
 
     def get_df_hb(self):
@@ -294,7 +339,6 @@ class SmallTrajSpring(Spring):
             df3 = df3.sort_values(by=['Resid_i'])
             df3 = df3.reset_index()
             df_result = df3
-        print("Read Dataframe of HB: df_hb")
         return df_result
 
     def __read_df_at_type3(self):
