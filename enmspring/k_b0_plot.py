@@ -2,7 +2,7 @@ from os import path
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import stats
-from enmspring.spring import Spring
+from enmspring.spring import Spring, BigTrajAgent
 from enmspring import k_b0_util
 
 plt.rcParams['font.family'] = 'sans-serif'
@@ -291,3 +291,52 @@ class CorrelationPlot:
             df0 = spring_obj.read_k_b0_pairtype_df_given_cutoff(self.cutoff)
             d_temp[host] = k_b0_util.get_central_bps_df(df0)
         return d_temp
+
+
+class k0_histogram_bb_ribose_st_hb:
+    
+    hosts = ['a_tract_21mer', 'g_tract_21mer']
+    type_na = 'bdna+bdna'
+    only_central = True
+    d_colors = {'a_tract_21mer': 'blue', 'g_tract_21mer': 'red'}
+    d_labels = {'a_tract_21mer': 'A-tract', 'g_tract_21mer': 'G-tract'}
+    d_bins = {'backbone': 100, 'ribose': 100, 'st': 25, 'hb': 25}
+    d_title = {'backbone': 'backbone', 'ribose': 'ribose puckering', 
+               'st': 'base-stacking',  'hb': 'base-pairing'}
+
+    def __init__(self, bigtraj_folder):
+        self.bigtraj_folder = bigtraj_folder
+        self.d_results = dict()
+
+    def plot_main(self, figsize):
+        fig, axes = plt.subplots(nrows=2, ncols=2, figsize=figsize)
+        self.ax_plot(axes[0,0], 'backbone')
+        self.ax_plot(axes[0,1], 'ribose')
+        self.ax_plot(axes[1,0], 'st')
+        self.ax_plot(axes[1,1], 'hb')
+        return fig, axes
+
+    def ax_plot(self, ax, interaction):
+        for host in self.hosts:
+            ax.hist(self.d_results[host][interaction], self.d_bins[interaction], density=True, facecolor=self.d_colors[host], 
+            label=self.d_labels[host], alpha=0.75)
+            ax.set_title(self.d_title[interaction])
+            ax.set_xlabel('k (kcal/mol/Å$^2$)')
+            ax.set_ylabel('Probability')
+            if interaction == 'backbone':
+                ax.legend(frameon=False)
+
+    def pre_process(self):
+        for host in self.hosts:
+            b_agent = BigTrajAgent(host, self.type_na, self.bigtraj_folder, self.only_central)
+            b_agent.read_all_k_b0_pairtype_df()
+            b_agent.put_all_df_st_into_dict()
+            b_agent.put_all_df_hb_into_dict()
+            b_agent.put_all_df_backbone_into_dict()
+            b_agent.put_all_df_ribose_into_dict()
+            self.d_results[host] = dict()
+            self.d_results[host]['backbone'] = b_agent.get_k_backbone_list()
+            self.d_results[host]['ribose'] = b_agent.get_k_ribose_list()
+            self.d_results[host]['st'] = b_agent.get_k_st_list()
+            self.d_results[host]['hb'] = b_agent.get_k_hb_list()
+            
