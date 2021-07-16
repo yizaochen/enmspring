@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from enmspring.k_b0_util import get_df_by_filter_bp
 from enmspring.na_seq import sequences
-from enmspring.spring import Spring
+from enmspring.spring import Spring, BigTrajAgent
 
 atomname_map = {'A': {'type1': 'N6', 'type2': 'N1', 'type3': 'C2'}, 
                 'T': {'type1': 'O4', 'type2': 'N3', 'type3': 'O2'},
@@ -25,8 +25,7 @@ class HBAgent:
         self.n_bp = n_bp
         self.seq_guide = sequences[host]['guide']
 
-        self.df_hb = self.__read_df_hb()
-
+        self.df_hb = self.read_df_hb()
         self.basepairs = None
 
     def initialize_basepair(self):
@@ -37,11 +36,11 @@ class HBAgent:
             basepairs[resid_i] = bp_obj
         self.basepairs = basepairs
 
-    def __read_df_hb(self):
+    def read_df_hb(self):
         spring_obj = Spring(self.rootfolder, self.host, self.type_na, self.n_bp)
         df = spring_obj.read_k_b0_pairtype_df_given_cutoff(self.cutoff)
         df1 = get_df_by_filter_bp(df, 'hb')
-        df2 = self.__read_df_at_type3()
+        df2 = self.read_df_at_type3()
         if len(df2) == 0:
             return df1
         else:
@@ -50,21 +49,21 @@ class HBAgent:
             df3 = df3.reset_index()
             return df3
 
-    def __read_df_at_type3(self):
+    def read_df_at_type3(self):
         spring_obj = Spring(self.rootfolder, self.host, self.type_na, self.n_bp)
         df0 = spring_obj.read_k_b0_pairtype_df_given_cutoff(self.cutoff)
         df1 = get_df_by_filter_bp(df0, 'bp1')
-        df2_1 = self.__filter_C2_O2(df1)
-        df2_2 = self.__filter_O2_C2(df1)
+        df2_1 = self.filter_C2_O2(df1)
+        df2_2 = self.filter_O2_C2(df1)
         return pd.concat([df2_1, df2_2])
 
-    def __filter_C2_O2(self, df):
+    def filter_C2_O2(self, df):
         mask0 = (df['Atomname_i'] == 'C2')
         df0 = df[mask0]
         mask1 = (df0['Atomname_j'] == 'O2')
         return df0[mask1]
 
-    def __filter_O2_C2(self, df):
+    def filter_O2_C2(self, df):
         mask0 = (df['Atomname_i'] == 'O2')
         df0 = df[mask0]
         mask1 = (df0['Atomname_j'] == 'C2')
@@ -104,27 +103,70 @@ class HBAgent:
             mask = self.df_hb['Resid_i'] == resid_i
             df1 = self.df_hb[mask]
             for typename in typelist:
-                atomname_i, atomname_j = self.__get_atomname_ij(resid_i, typename)
+                atomname_i, atomname_j = self.get_atomname_ij(resid_i, typename)
                 mask = (df1['Atomname_i'] == atomname_i) & (df1['Atomname_j'] == atomname_j)
                 df2 = df1[mask]
                 if len(df2) == 0:
                     continue
                 else:
-                    d_hb_new = self.__process_d_hb_new(d_hb_new, df2)
+                    d_hb_new = self.process_d_hb_new(d_hb_new, df2)
         return d_hb_new
 
-    def __get_atomname_ij(self, resid_i, typename):
+    def get_atomname_ij(self, resid_i, typename):
         resname_i = self.seq_guide[resid_i-1]
         resname_j = self.d_atcg[resname_i]
         atomname_i = atomname_map[resname_i][typename]
         atomname_j = atomname_map[resname_j][typename]
         return atomname_i, atomname_j
 
-    def __process_d_hb_new(self, d_hb_new, df_sele):
+    def process_d_hb_new(self, d_hb_new, df_sele):
         d_hb_new['Atomid_i'].append(df_sele['Atomid_i'].iloc[0])
         d_hb_new['Atomid_j'].append(df_sele['Atomid_j'].iloc[0])
         d_hb_new['k'].append(df_sele['k'].iloc[0])
         return d_hb_new
+
+class HBAgentBigTraj(HBAgent):
+
+    def __init__(self, host, bigtraj_folder, n_bp, only_central=False):
+        self.host = host
+        self.n_bp = n_bp
+        self.seq_guide = sequences[host]['guide']
+
+        self.bt_agent = BigTrajAgent(host, self.type_na, bigtraj_folder, only_central)
+        self.bt_agent.read_all_k_b0_pairtype_df()
+        self.bt_agent.put_all_df_hb_into_dict()
+
+        self.basepairs = None
+
+    def initialize_basepair(self):
+        basepairs = dict()
+        for idx, resname_i in enumerate(self.seq_guide):
+            resid_i = idx + 1
+            basepairs[resid_i] = dict()
+            for time1, time2 in self.bt_agent.time_list:
+                key = (time1,time2)
+                df_hb = self.bt_agent.d_df_hb[key]
+                basepairs[resid_i][key] = BasePair(resname_i, resid_i, df_hb)
+        self.basepairs = basepairs
+
+    def get_resid_klist_all(self, typename):
+        resid_list = list(range(1, self.n_bp+1))
+        k_mean_array = np.zeros(self.n_bp)
+        k_std_array = np.zeros(self.n_bp)
+        for idx, resid in enumerate(resid_list):
+            k_mean, k_std = self.get_kmean_kstd(resid, typename)
+            k_mean_array[idx] = k_mean
+            k_std_array[idx] = k_std
+        return resid_list, k_mean_array, k_std_array
+
+    def get_kmean_kstd(self, resid, typename):
+        k_array = np.zeros(len(self.bt_agent.time_list))
+        idx = 0
+        for time1, time2 in self.bt_agent.time_list:
+            basepair = self.basepairs[resid][(time1,time2)]
+            k_array[idx] = basepair.k_dict[typename]
+            idx += 1
+        return k_array.mean(), k_array.std()
 
 class BasePair:
     def __init__(self, resname_i, resid_i, df):
