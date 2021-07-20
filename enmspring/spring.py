@@ -15,18 +15,39 @@ class BigTrajAgent:
     clean_criteria = 1e-3
     interactions = ['other', 'backbone', 'stack', 'sugar', 'HB']
 
-    def __init__(self, host, type_na, bigtraj_folder, only_central):
+    def __init__(self, host, type_na, bigtraj_folder, only_central, split_5=True, one_big_window=False):
         self.host = host
         self.type_na = type_na
         self.bigtraj_folder = bigtraj_folder
         self.only_central = only_central
-        self.time_list, self.mdnum_list = self.get_time_list()
+
+        if split_5:
+            self.time_list, self.mdnum_list = self.get_time_list_split_5()
+        elif one_big_window:
+            self.time_list, self.mdnum_list = self.get_time_list_one_big_window()
+        else:
+            self.time_list, self.mdnum_list = self.get_time_list()
+
         self.d_smallagents = self.get_all_small_agents()
 
         self.d_df_backbone = dict()
         self.d_df_ribose = dict()
         self.d_df_st = dict()
         self.d_df_hb = dict()
+
+    def get_time_list_split_5(self):
+        n_split = 5 # ad hoc
+        mdnum_list = list()
+        time_list = list()
+        for time1 in range(n_split):
+            time2 = time1 + 1
+            time_list.append((time1, time2))
+        return time_list, mdnum_list   
+
+    def get_time_list_one_big_window(self):
+        mdnum_list = list()
+        time_list = [(0, 5000)]
+        return time_list, mdnum_list    
         
     def get_time_list(self):
         middle_interval = int(self.interval_time/2)
@@ -120,13 +141,14 @@ class Spring:
     col_names = ['PairID', 'PairType', 'Big_Category', 'Strand_i', 'Resid_i',  
                  'Atomname_i', 'Atomid_i', 'Strand_j', 'Resid_j', 'Atomname_j', 'Atomid_j', 'k', 'b0']
 
-    def __init__(self, rootfolder, host, type_na, n_bp):
+    def __init__(self, rootfolder, host, type_na, n_bp, time_label='0_5000'):
         self.rootfolder = rootfolder
         self.host = host
         self.type_na = type_na
+        self.time_label = time_label
         self.n_bp = n_bp
         self.host_folder = path.join(rootfolder, host)
-        self.na_folder = path.join(self.host_folder, type_na)
+        self.na_folder = path.join(self.host_folder, type_na, time_label)
         self.prm_folder = path.join(self.na_folder, 'cutoffdata')
         self.input_folder = path.join(self.na_folder, 'input')
         self.crd = path.join(self.input_folder,

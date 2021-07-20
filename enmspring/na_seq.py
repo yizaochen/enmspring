@@ -9,4 +9,6 @@ sequences = {'a_tract_21mer': {'guide': 'AAAAAAAAAAAAAAAAAAAAA',
              'tgtg_21mer':    {'guide': 'TGTGTGTGTGTGTGTGTGTGT',
                                'target': 'ACACACACACACACACACACA'},
              'ctct_21mer':    {'guide': 'CTCTCTCTCTCTCTCTCTCTC', 
-                               'target': 'GAGAGAGAGAGAGAGAGAGAG'}}
+                               'target': 'GAGAGAGAGAGAGAGAGAGAG'},
+             'tat_21mer':     {'guide': 'CGCAAAAAATATAAAAAAGCG', 
+                               'target': 'CGCTTTTTTATATTTTTTGCG'}}

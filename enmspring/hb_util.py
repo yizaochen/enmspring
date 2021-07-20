@@ -19,9 +19,10 @@ class HBAgent:
     type_na = 'bdna+bdna'
     d_atcg = {'A': 'T', 'T': 'A', 'C': 'G', 'G': 'C'}
 
-    def __init__(self, host, rootfolder, n_bp):
+    def __init__(self, host, rootfolder, n_bp, time_label='0_5000'):
         self.rootfolder = rootfolder
         self.host = host
+        self.time_label = time_label
         self.n_bp = n_bp
         self.seq_guide = sequences[host]['guide']
 
@@ -37,7 +38,7 @@ class HBAgent:
         self.basepairs = basepairs
 
     def read_df_hb(self):
-        spring_obj = Spring(self.rootfolder, self.host, self.type_na, self.n_bp)
+        spring_obj = Spring(self.rootfolder, self.host, self.type_na, self.n_bp, self.time_label)
         df = spring_obj.read_k_b0_pairtype_df_given_cutoff(self.cutoff)
         df1 = get_df_by_filter_bp(df, 'hb')
         df2 = self.read_df_at_type3()
@@ -127,12 +128,12 @@ class HBAgent:
 
 class HBAgentBigTraj(HBAgent):
 
-    def __init__(self, host, bigtraj_folder, n_bp, only_central=False):
+    def __init__(self, host, bigtraj_folder, n_bp, only_central=False, split_5=True, one_big_window=False):
         self.host = host
         self.n_bp = n_bp
         self.seq_guide = sequences[host]['guide']
 
-        self.bt_agent = BigTrajAgent(host, self.type_na, bigtraj_folder, only_central)
+        self.bt_agent = BigTrajAgent(host, self.type_na, bigtraj_folder, only_central, split_5, one_big_window)
         self.bt_agent.read_all_k_b0_pairtype_df()
         self.bt_agent.put_all_df_hb_into_dict()
 
@@ -167,6 +168,23 @@ class HBAgentBigTraj(HBAgent):
             k_array[idx] = basepair.k_dict[typename]
             idx += 1
         return k_array.mean(), k_array.std()
+
+    def get_karray_by_resid_typename(self, resid, typename):
+        k_array = np.zeros(len(self.bt_agent.time_list))
+        idx = 0
+        for time1, time2 in self.bt_agent.time_list:
+            basepair = self.basepairs[resid][(time1,time2)]
+            k_array[idx] = basepair.k_dict[typename]
+            idx += 1
+        return k_array
+
+    def get_k_container(self):
+        resid_list = list(range(1, self.n_bp+1))
+        k_container = {resid: dict() for resid in resid_list}
+        for resid in resid_list:
+            for typename in ['type1', 'type2', 'type3']:
+                k_container[resid][typename] = self.get_karray_by_resid_typename(resid, typename)
+        return k_container
 
 class BasePair:
     def __init__(self, resname_i, resid_i, df):
