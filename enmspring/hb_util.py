@@ -1,3 +1,4 @@
+from os import path
 import pandas as pd
 import MDAnalysis as mda
 import numpy as np
@@ -128,12 +129,14 @@ class HBAgent:
 
 class HBAgentBigTraj(HBAgent):
 
-    def __init__(self, host, bigtraj_folder, n_bp, only_central=False, split_5=True, one_big_window=False):
+    def __init__(self, host, bigtraj_folder, n_bp, only_central=False, split_5=True, one_big_window=False, interval_time=1000):
         self.host = host
         self.n_bp = n_bp
         self.seq_guide = sequences[host]['guide']
 
-        self.bt_agent = BigTrajAgent(host, self.type_na, bigtraj_folder, only_central, split_5, one_big_window)
+        self.interval_time = interval_time
+
+        self.bt_agent = BigTrajAgent(host, self.type_na, bigtraj_folder, only_central, split_5, one_big_window, self.interval_time)
         self.bt_agent.read_all_k_b0_pairtype_df()
         self.bt_agent.put_all_df_hb_into_dict()
 

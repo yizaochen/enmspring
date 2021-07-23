@@ -1,4 +1,5 @@
 from os import path
+import math
 import pandas as pd
 import MDAnalysis
 from enmspring import ic_table
@@ -9,24 +10,19 @@ from enmspring.k_b0_util import get_df_by_filter_st, get_df_by_filter_bp, get_ce
 class BigTrajAgent:
     start_time = 0
     end_time = 5000 # 5000 ns
-    interval_time = 1000 # unit: ns
     n_bp = 21
     cutoff = 4.7
     clean_criteria = 1e-3
     interactions = ['other', 'backbone', 'stack', 'sugar', 'HB']
 
-    def __init__(self, host, type_na, bigtraj_folder, only_central, split_5=True, one_big_window=False):
+    def __init__(self, host, type_na, bigtraj_root, only_central, split_5=True, one_big_window=False, interval_time=1000):
         self.host = host
         self.type_na = type_na
-        self.bigtraj_folder = bigtraj_folder
         self.only_central = only_central
 
-        if split_5:
-            self.time_list, self.mdnum_list = self.get_time_list_split_5()
-        elif one_big_window:
-            self.time_list, self.mdnum_list = self.get_time_list_one_big_window()
-        else:
-            self.time_list, self.mdnum_list = self.get_time_list()
+        self.interval_time = interval_time
+        self.bigtraj_folder = self.get_local_bigtraj_folder(bigtraj_root, split_5, one_big_window)
+        self.time_list, self.mdnum_list = self.set_time_list_mdnum_list(split_5, one_big_window)
 
         self.d_smallagents = self.get_all_small_agents()
 
@@ -34,6 +30,23 @@ class BigTrajAgent:
         self.d_df_ribose = dict()
         self.d_df_st = dict()
         self.d_df_hb = dict()
+
+    def get_local_bigtraj_folder(self, bigtraj_root, split_5, one_big_window):
+        if split_5:
+            return path.join(bigtraj_root, 'split_5')
+        elif one_big_window:
+            return path.join(bigtraj_root, '5000ns')
+        else:
+            return path.join(bigtraj_root, f'{self.interval_time}ns')
+
+    def set_time_list_mdnum_list(self, split_5, one_big_window):
+        if split_5:
+            time_list, mdnum_list = self.get_time_list_split_5()
+        elif one_big_window:
+            time_list, mdnum_list = self.get_time_list_one_big_window()
+        else:
+            time_list, mdnum_list = self.get_time_list()
+        return time_list, mdnum_list
 
     def get_time_list_split_5(self):
         n_split = 5 # ad hoc
@@ -53,14 +66,32 @@ class BigTrajAgent:
         middle_interval = int(self.interval_time/2)
         time_list = list()
         mdnum_list = list()
-        mdnum1 = 1
         for time1 in range(self.start_time, self.end_time, middle_interval):
             time2 = time1 + self.interval_time
             if time2 <= self.end_time:
                 time_list.append((time1, time2))
-                mdnum_list.append((mdnum1, mdnum1+9))
-            mdnum1 += 5
+                mdnum_list = self.append_mdnum_list(time1, time2, mdnum_list)
         return time_list, mdnum_list
+
+    def decide_mdnum_by_start_time(self, start_time):
+        # time unit: ns
+        if start_time % 100 == 0:
+            return math.ceil(start_time / 100) + 1
+        else:
+            return math.ceil(start_time / 100)
+
+    def decide_mdnum_by_end_time(self, end_time):
+        # time unit: ns
+        if end_time % 100 == 0:
+            return math.floor(end_time / 100)
+        else:
+            return math.floor(end_time / 100) + 1
+
+    def append_mdnum_list(self, time1, time2, mdnum_list):
+        mdnum1 = self.decide_mdnum_by_start_time(time1)
+        mdnum2 = self.decide_mdnum_by_end_time(time2)
+        mdnum_list.append((mdnum1, mdnum2))
+        return mdnum_list
 
     def get_all_small_agents(self):
         d_smallagents = dict()
