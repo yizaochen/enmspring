@@ -23,6 +23,7 @@ class GraphAgent:
     def __init__(self, host, rootfolder):
         self.host = host
         self.rootfolder = rootfolder
+
         self.host_folder = path.join(rootfolder, host)
         self.na_folder = path.join(self.host_folder, self.type_na)
         self.input_folder = path.join(self.na_folder, 'input')
@@ -35,7 +36,7 @@ class GraphAgent:
         self.u = MDAnalysis.Universe(self.crd, self.crd)
         self.map, self.inverse_map, self.residues_map, self.atomid_map,\
         self.atomid_map_inverse, self.atomname_map, self.strandid_map,\
-        self.resid_map, self.mass_map = self.__build_map()
+        self.resid_map, self.mass_map = self.build_map()
 
         self.node_list = None
         self.d_idx = None
@@ -393,7 +394,7 @@ class GraphAgent:
         str_5 = f'radius {radius:.2f}\n'
         return str_0 + str_1 + str_2 + str_3 + str_4 + str_5
        
-    def __build_map(self):
+    def build_map(self):
         d1 = dict()  # key: selction, value: cgname
         d2 = dict()  # key: cgname,   value: selection
         d3 = dict()
@@ -447,7 +448,7 @@ class Stack(GraphAgent):
 
     def __init__(self, host, rootfolder):
         super().__init__(host, rootfolder)
-        self.df_st = self.__read_df_st()
+        self.df_st = self.read_df_st()
 
     def pre_process(self):
         self.build_node_list()
@@ -500,7 +501,7 @@ class Stack(GraphAgent):
         sele_A[i_lower] = sele_A.transpose()[i_lower]
         return sele_A
         
-    def __read_df_st(self):
+    def read_df_st(self):
         criteria = 1e-3
         df1 = get_df_by_filter_st(self.df_all_k, 'st')
         mask = (df1['k'] > criteria)
