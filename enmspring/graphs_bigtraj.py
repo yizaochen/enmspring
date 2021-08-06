@@ -136,6 +136,87 @@ class StackMeanModeAgent:
         else:
             return [self.get_eigenvalue_by_id(eigv_id) for eigv_id in self.strand2_array]
 
+class ProminentModes:
+    def __init__(self, host, rootfolder, interval_time):
+        self.host = host
+        self.rootfolder = rootfolder
+        self.interval_time = interval_time
+        self.host_folder = path.join(rootfolder, host)
+        self.npy_folder = path.join(self.host_folder, 'mean_mode_npy')
+        self.s_agent = None
+
+        self.mean_modes_w = None # eigenvalues
+        self.mean_modes_v = None # eigenvectors
+        self.time_list = None
+        self.d_smallagents = None
+        self.initialize_s_agent()
+
+        self.n_eigenvalues = len(self.mean_modes_w)
+        self.n_window = len(self.time_list)
+        
+        self.f_mean_r_alpha_array = self.set_f_mean_r_alpha_array()
+        self.mean_r_alpha_array = None
+
+    def initialize_s_agent(self):
+        self.s_agent = StackMeanModeAgent(self.host, self.rootfolder, self.interval_time)
+        self.s_agent.load_mean_mode_laplacian_from_npy()
+        self.s_agent.eigen_decompose()
+
+        self.mean_modes_w = self.s_agent.w # eigenvalues
+        self.mean_modes_v = self.s_agent.v # eigenvectors
+        self.time_list = self.s_agent.time_list
+        self.d_smallagents = self.s_agent.d_smallagents
+
+    def initialize_small_agents(self):
+        self.s_agent.preprocess_all_small_agents()
+        for time_tuple in self.time_list:
+            self.s_agent.d_smallagents[time_tuple].eigen_decompose()
+            
+    def set_f_mean_r_alpha_array(self):
+        return path.join(self.npy_folder, 'mean_r_alpha.npy')
+
+    def get_mean_modes_v_mat(self):
+        mean_modes_v_mat = np.zeros((self.n_eigenvalues, self.n_eigenvalues))
+        for eigv_idx in range(self.n_eigenvalues):
+            mean_modes_v_mat[:, eigv_idx] = self.mean_modes_v[eigv_idx] # column as eigenvector
+        return mean_modes_v_mat
+
+    def get_window_modes_v_mat(self, window_id):
+        key = self.time_list[window_id]
+        window_modes_v_mat = np.zeros((self.n_eigenvalues, self.n_eigenvalues))
+        v_array = self.d_smallagents[key].v
+        for eigv_idx in range(self.n_eigenvalues):
+            window_modes_v_mat[:, eigv_idx] = v_array[eigv_idx] # column as eigenvector
+        return window_modes_v_mat
+
+    def get_r_n_alpha(self):
+        mean_modes_v_mat_T = self.get_mean_modes_v_mat().T
+        r_n_alpha_mat = np.zeros((self.n_window, self.n_eigenvalues))
+        for window_id in range(self.n_window):
+            window_modes_v_mat = self.get_window_modes_v_mat(window_id)
+            product_mat = np.dot(mean_modes_v_mat_T, window_modes_v_mat)
+            for eigv_id in range(self.n_eigenvalues):
+                r_n_alpha_mat[window_id, eigv_id] = product_mat[eigv_id,:].max()
+        return r_n_alpha_mat
+
+    def set_mean_r_alpha_array(self):
+        mean_r_alpha_array = np.zeros(self.n_eigenvalues)
+        r_n_alpha_mat = self.get_r_n_alpha()
+        for eigv_idx in range(self.n_eigenvalues):
+            mean_r_alpha_array[eigv_idx] = r_n_alpha_mat[:, eigv_idx].mean()
+        self.mean_r_alpha_array = mean_r_alpha_array
+
+    def save_mean_r_alpha_array(self):
+        np.save(self.f_mean_r_alpha_array, self.mean_r_alpha_array)
+        print(f'Save mean_r_alpha_array into {self.f_mean_r_alpha_array}')
+
+    def load_mean_r_alpha_array(self):
+        self.mean_r_alpha_array = np.load(self.f_mean_r_alpha_array)
+        print(f'Load mean_r_alpha_array from {self.f_mean_r_alpha_array}')
+
+    def get_mean_r_alpha_array(self):
+        return self.mean_r_alpha_array
+
 class BackboneMeanModeAgent(StackMeanModeAgent):
     def set_f_laplacian(self):
         return path.join(self.npy_folder, 'laplacian_backbone.npy')
@@ -155,6 +236,20 @@ class BackboneMeanModeAgent(StackMeanModeAgent):
         strand2[idx_start_strand2:] = 1.
         self.strand1_benchmark = strand1
         self.strand2_benchmark = strand2
+
+class ProminentModesBackbone(ProminentModes):
+    def initialize_s_agent(self):
+        self.s_agent = BackboneMeanModeAgent(self.host, self.rootfolder, self.interval_time)
+        self.s_agent.load_mean_mode_laplacian_from_npy()
+        self.s_agent.eigen_decompose()
+
+        self.mean_modes_w = self.s_agent.w # eigenvalues
+        self.mean_modes_v = self.s_agent.v # eigenvectors
+        self.time_list = self.s_agent.time_list
+        self.d_smallagents = self.s_agent.d_smallagents
+        
+    def set_f_mean_r_alpha_array(self):
+        return path.join(self.npy_folder, 'mean_r_alpha_backbone.npy')
 
 class StackGraph(Stack):
     def __init__(self, host, rootfolder, time_label):
