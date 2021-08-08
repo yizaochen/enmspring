@@ -1,4 +1,5 @@
 from os import path
+import matplotlib.pyplot as plt
 import MDAnalysis
 import numpy as np
 from enmspring.spring import Spring
@@ -27,6 +28,9 @@ class StackMeanModeAgent:
         self.node_list = None
         self.d_idx = None
         self.n_node = None
+        self.strandid_map = None
+        self.resid_map = None
+        self.atomname_map = None
 
         self.laplacian_mat = None
 
@@ -135,6 +139,25 @@ class StackMeanModeAgent:
             return [self.get_eigenvalue_by_id(eigv_id) for eigv_id in self.strand1_array]
         else:
             return [self.get_eigenvalue_by_id(eigv_id) for eigv_id in self.strand2_array]
+
+    def initialize_nodes_information(self):
+        time1_tuple = self.time_list[0]
+        self.d_smallagents[time1_tuple].build_node_list()
+        self.node_list = self.d_smallagents[time1_tuple].node_list
+        self.n_node = len(self.node_list)
+        self.strandid_map = self.d_smallagents[time1_tuple].strandid_map
+        self.resid_map = self.d_smallagents[time1_tuple].resid_map
+        self.atomname_map = self.d_smallagents[time1_tuple].atomname_map
+
+    def plot_sele_eigenvector(self, figsize, sele_id):
+        fig, ax = plt.subplots(figsize=figsize)
+        eigv_sele = self.get_eigenvector_by_id(sele_id)
+        x = range(len(eigv_sele))
+        xticklabels = [self.atomname_map[node_id] for node_id in self.node_list]
+        ax.plot(x, eigv_sele)
+        ax.set_xticks(x)
+        ax.set_xticklabels(xticklabels)
+        return fig, ax
 
 class ProminentModes:
     def __init__(self, host, rootfolder, interval_time):
