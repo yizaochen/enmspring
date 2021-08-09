@@ -10,6 +10,11 @@ from enmspring.miscell import check_dir_exist_and_make
 class StackMeanModeAgent:
     start_time = 0
     end_time = 5000 # 5000 ns
+    n_bp = 21
+    d_atomlist = {'A': ['N1', 'C6', 'C5', 'C4', 'N3', 'C2', 'N6', 'N7', 'C8', 'N9'],
+                  'T': ['C4', 'C5', 'C6', 'N1', 'C2', 'N3', 'C7', 'O2', 'O4'],
+                  'C': ['C4', 'C5', 'C6', 'N1', 'C2', 'N3', 'O2', 'N4'],
+                  'G': ['N1', 'C6', 'C5', 'C4', 'N3', 'C2', 'O6', 'N2', 'N7', 'C8', 'N9']}
 
     def __init__(self, host, rootfolder, interval_time):
         self.host = host
@@ -31,6 +36,8 @@ class StackMeanModeAgent:
         self.strandid_map = None
         self.resid_map = None
         self.atomname_map = None
+        self.d_node_list_by_strand = None
+        self.d_idx_list_by_strand = None
 
         self.laplacian_mat = None
 
@@ -134,6 +141,12 @@ class StackMeanModeAgent:
         print(f'There are {len(self.strand2_array)} eigenvectors belonging to STRAND2.')
         print(f'Sum of two strands: {len(self.strand1_array)+len(self.strand2_array)}')
 
+    def decide_eigenvector_strand_by_strand_array(self, eigv_id):
+        if eigv_id in self.strand1_array:
+            return 'STRAND1'
+        else:
+            return 'STRAND2'
+
     def get_lambda_by_strand(self, strandid):
         if strandid == 'STRAND1':
             return [self.get_eigenvalue_by_id(eigv_id) for eigv_id in self.strand1_array]
@@ -144,19 +157,53 @@ class StackMeanModeAgent:
         time1_tuple = self.time_list[0]
         self.d_smallagents[time1_tuple].build_node_list()
         self.node_list = self.d_smallagents[time1_tuple].node_list
+        self.d_idx = self.d_smallagents[time1_tuple].d_idx
         self.n_node = len(self.node_list)
         self.strandid_map = self.d_smallagents[time1_tuple].strandid_map
         self.resid_map = self.d_smallagents[time1_tuple].resid_map
         self.atomname_map = self.d_smallagents[time1_tuple].atomname_map
 
+    def split_node_list_into_two_strand(self):
+        strandid_list = ['STRAND1', 'STRAND2']
+        d_node_list_by_strand = dict()
+        d_idx_list_by_strand = dict()
+        for strand_id in strandid_list:
+            d_node_list_by_strand[strand_id] = [node_id for node_id in self.node_list if self.strandid_map[node_id] == strand_id]
+            d_idx_list_by_strand[strand_id] = [idx for idx, node_id in enumerate(self.node_list) if self.strandid_map[node_id] == strand_id]
+        self.d_node_list_by_strand = d_node_list_by_strand
+        self.d_idx_list_by_strand = d_idx_list_by_strand
+
+    def get_vlines_by_resid_list(self, node_list):
+        vlines = list()
+        resid_list = [self.resid_map[node_id] for node_id in node_list]
+        resid_prev = None
+        for idx, resid in enumerate(resid_list):
+            if idx == 0:
+                resid_prev = resid
+                continue
+            if resid_prev != resid:
+                vlines.append((2 * idx - 1) / 2)
+            resid_prev = resid    
+        return vlines
+
     def plot_sele_eigenvector(self, figsize, sele_id):
         fig, ax = plt.subplots(figsize=figsize)
-        eigv_sele = self.get_eigenvector_by_id(sele_id)
-        x = range(len(eigv_sele))
-        xticklabels = [self.atomname_map[node_id] for node_id in self.node_list]
-        ax.plot(x, eigv_sele)
+        strand_id = self.decide_eigenvector_strand_by_strand_array(sele_id)
+        idx_list = self.d_idx_list_by_strand[strand_id]
+        node_list= self.d_node_list_by_strand[strand_id]
+
+        y = self.get_eigenvector_by_id(sele_id) # eigenvector
+        y = y[idx_list]
+        x = range(len(y))
+        vlines = self.get_vlines_by_resid_list(node_list)
+
+        xticklabels = [self.atomname_map[node_id] for node_id in node_list]
+        ax.plot(x, y)
+        for vline in vlines:
+            ax.axvline(vline, color="grey", alpha=0.2)
         ax.set_xticks(x)
         ax.set_xticklabels(xticklabels)
+        ax.set_xlim(x[0]-1, x[-1]+1)
         return fig, ax
 
 class ProminentModes:
@@ -217,7 +264,7 @@ class ProminentModes:
         r_n_alpha_mat = np.zeros((self.n_window, self.n_eigenvalues))
         for window_id in range(self.n_window):
             window_modes_v_mat = self.get_window_modes_v_mat(window_id)
-            product_mat = np.dot(mean_modes_v_mat_T, window_modes_v_mat)
+            product_mat = np.abs(np.dot(mean_modes_v_mat_T, window_modes_v_mat))
             for eigv_id in range(self.n_eigenvalues):
                 r_n_alpha_mat[window_id, eigv_id] = product_mat[eigv_id,:].max()
         return r_n_alpha_mat
