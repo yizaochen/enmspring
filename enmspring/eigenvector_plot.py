@@ -36,6 +36,7 @@ class AtomSeparatePlot:
         self.add_fraying_lines(d_axes)
         self.set_all_xlims(d_axes)
         self.remove_axes(axes)
+        self.print_ylim(d_axes)
         return fig, axes
 
     def barplot_single_atom(self, ax, atomname, eigv_id, s_agent, b_agent):
@@ -92,6 +93,18 @@ class AtomSeparatePlot:
     def set_all_xlims(self, d_axes):
         for atomname in self.atom_list:
             d_axes[atomname].set_xlim(0.5,21.5)
+
+    def print_ylim(self, d_axes):
+        ymin_list = list()
+        ymax_list = list()
+        for atomname in self.atom_list:
+            ymin, ymax = d_axes[atomname].get_ylim()
+            ymin_list.append(ymin)
+            ymax_list.append(ymax)
+        ymin = min(ymin_list)
+        ymax = max(ymax_list)
+        print(f'({ymin:.3f}, {ymax:.3f})')
+        
 
     def add_fraying_lines(self, d_axes):
         for atomname in self.atom_list:

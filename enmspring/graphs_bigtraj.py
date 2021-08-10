@@ -246,18 +246,11 @@ class ProminentModes:
         return path.join(self.npy_folder, 'mean_r_alpha.npy')
 
     def get_mean_modes_v_mat(self):
-        mean_modes_v_mat = np.zeros((self.n_eigenvalues, self.n_eigenvalues))
-        for eigv_idx in range(self.n_eigenvalues):
-            mean_modes_v_mat[:, eigv_idx] = self.mean_modes_v[eigv_idx] # column as eigenvector
-        return mean_modes_v_mat
+        return self.mean_modes_v
 
     def get_window_modes_v_mat(self, window_id):
         key = self.time_list[window_id]
-        window_modes_v_mat = np.zeros((self.n_eigenvalues, self.n_eigenvalues))
-        v_array = self.d_smallagents[key].v
-        for eigv_idx in range(self.n_eigenvalues):
-            window_modes_v_mat[:, eigv_idx] = v_array[eigv_idx] # column as eigenvector
-        return window_modes_v_mat
+        return self.d_smallagents[key].v
 
     def get_r_n_alpha(self):
         mean_modes_v_mat_T = self.get_mean_modes_v_mat().T
