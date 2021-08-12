@@ -33,12 +33,22 @@ class StackMeanModeAgent:
         self.node_list = None
         self.d_idx = None
         self.n_node = None
+
+        self.map = None
+        self.inverse_map = None
+        self.residues_map = None
+        self.atomid_map = None
+        self.atomid_map_inverse = None
+        self.atomname_map = None
         self.strandid_map = None
         self.resid_map = None
-        self.atomname_map = None
+        self.mass_map = None
+
         self.d_node_list_by_strand = None
         self.d_idx_list_by_strand = None
-
+        
+        self.adjacency_mat = None
+        self.degree_mat = None
         self.laplacian_mat = None
 
         self.w = None  # Eigenvalue array
@@ -85,6 +95,13 @@ class StackMeanModeAgent:
         self.node_list = self.d_smallagents[(time1,time2)].node_list
         self.d_idx = self.d_smallagents[(time1,time2)].d_idx
         self.n_node = self.d_smallagents[(time1,time2)].n_node
+
+    def set_degree_adjacency_from_laplacian(self):
+        self.adjacency_mat = np.zeros((self.n_node, self.n_node))
+        self.degree_mat = np.zeros((self.n_node, self.n_node))
+        for idx in range(self.n_node):
+            self.degree_mat[idx, idx] = self.laplacian_mat[idx, idx]
+        self.adjacency_mat = self.laplacian_mat - self.degree_mat
 
     def make_mean_mode_laplacian(self):
         self.laplacian_mat = np.zeros((self.n_node, self.n_node))
@@ -159,9 +176,19 @@ class StackMeanModeAgent:
         self.node_list = self.d_smallagents[time1_tuple].node_list
         self.d_idx = self.d_smallagents[time1_tuple].d_idx
         self.n_node = len(self.node_list)
+        self.initialize_all_maps()
+
+    def initialize_all_maps(self):
+        time1_tuple = self.time_list[0]
+        self.map = self.d_smallagents[time1_tuple].map
+        self.inverse_map = self.d_smallagents[time1_tuple].inverse_map
+        self.residues_map = self.d_smallagents[time1_tuple].residues_map
+        self.atomid_map = self.d_smallagents[time1_tuple].atomid_map
+        self.atomid_map_inverse = self.d_smallagents[time1_tuple].atomid_map_inverse
+        self.atomname_map = self.d_smallagents[time1_tuple].atomname_map
         self.strandid_map = self.d_smallagents[time1_tuple].strandid_map
         self.resid_map = self.d_smallagents[time1_tuple].resid_map
-        self.atomname_map = self.d_smallagents[time1_tuple].atomname_map
+        self.mass_map = self.d_smallagents[time1_tuple].mass_map
 
     def split_node_list_into_two_strand(self):
         strandid_list = ['STRAND1', 'STRAND2']
@@ -205,6 +232,23 @@ class StackMeanModeAgent:
         ax.set_xticklabels(xticklabels)
         ax.set_xlim(x[0]-1, x[-1]+1)
         return fig, ax
+
+    def get_A_by_atomname1_atomname2(self, atomname_i, atomname_j, sele_strandid):
+        sele_idx_list = list()
+        for resid_i in range(4, 18):
+            resid_j = resid_i + 1
+            idx_i = self.d_idx[self.map[self.get_key_by_atomname_resid_strandid(atomname_i, resid_i, sele_strandid)]]
+            idx_j = self.d_idx[self.map[self.get_key_by_atomname_resid_strandid(atomname_j, resid_j, sele_strandid)]]
+            sele_idx_list.append((idx_i, idx_j))
+        sele_A = np.zeros((self.n_node, self.n_node))
+        for idx_i, idx_j in sele_idx_list:
+            sele_A[idx_i, idx_j] = self.adjacency_mat[idx_i, idx_j]
+        i_lower = np.tril_indices(self.n_node, -1)
+        sele_A[i_lower] = sele_A.transpose()[i_lower]  # make the matrix symmetric
+        return sele_A
+        
+    def get_key_by_atomname_resid_strandid(self, atomname, resid, strandid):
+        return f'segid {strandid} and resid {resid} and name {atomname}'
 
 class ProminentModes:
     def __init__(self, host, rootfolder, interval_time):

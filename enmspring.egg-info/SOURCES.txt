@@ -19,9 +19,11 @@ enmspring/miscell.py
 enmspring/na_seq.py
 enmspring/networkx_display.py
 enmspring/pairtype.py
+enmspring/prominent_plot.py
 enmspring/spring.py
 enmspring/stack_util.py
 enmspring/vmddraw.py
+enmspring/vmddraw_meangraph.py
 enmspring.egg-info/PKG-INFO
 enmspring.egg-info/SOURCES.txt
 enmspring.egg-info/dependency_links.txt

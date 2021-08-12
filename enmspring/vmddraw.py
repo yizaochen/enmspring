@@ -3,6 +3,7 @@ import MDAnalysis
 import numpy as np
 from enmspring.graphs import Stack
 from enmspring.miscell import check_dir_exist_and_make
+from enmspring.graphs_bigtraj import StackMeanModeAgent
 enmspring_folder = '/home/yizaochen/codes/dna_rna/enmspring'
 all_folder = '/home/yizaochen/codes/dna_rna/all_systems'
 
@@ -43,11 +44,11 @@ class BaseStackImportanceAgent:
     def process_lines_for_edges_tcl(self, lines, atomidpairs, radius=0.25):
         u_npt4 = MDAnalysis.Universe(self.g_agent.npt4_crd, self.g_agent.npt4_crd) 
         for atomid1, atomid2 in atomidpairs:
-            line = self.__get_draw_edge_line(u_npt4.atoms.positions, atomid1-1, atomid2-1, radius)
+            line = self.get_draw_edge_line(u_npt4.atoms.positions, atomid1-1, atomid2-1, radius)
             lines.append(line)
         return lines
 
-    def __get_draw_edge_line(self, positions, atomid1, atomid2, radius):
+    def get_draw_edge_line(self, positions, atomid1, atomid2, radius):
         str_0 = 'graphics 0 cylinder {'
         str_1 = f'{positions[atomid1,0]:.3f} {positions[atomid1,1]:.3f} {positions[atomid1,2]:.3f}'
         str_2 = '} {'
@@ -294,7 +295,7 @@ class BaseStackImportanceAgent:
         for atompair, radius, color in zip(atompair_list, radius_list, color_list):
             positions = self.get_pair_positions_by_resid_names(u, resid_i, resid_j, atompair[0], atompair[1])
             temp_lines = [f'graphics 0 color {color}',
-                          self.__get_draw_edge_line(positions, 0, 1, radius)]
+                          self.get_draw_edge_line(positions, 0, 1, radius)]
             lines += temp_lines
         tcl_out = path.join(self.tcl_folder, 'show_basestack_pair.tcl')
         self.write_tcl_out(tcl_out, lines)
@@ -314,7 +315,7 @@ class BaseStackImportanceAgent:
         for atompair, radius, color in zip(atompair_list, radius_list, color_list):
             positions = self.get_pair_positions_by_resid_names(u, resid_i, resid_j, atompair[0], atompair[1])
             temp_lines = [f'graphics 0 color {color}',
-                          self.__get_draw_edge_line(positions, 0, 1, radius)]
+                          self.get_draw_edge_line(positions, 0, 1, radius)]
             lines += temp_lines
         tcl_out = path.join(self.tcl_folder, 'show_basestack_pair.tcl')
         self.write_tcl_out(tcl_out, lines)
@@ -334,7 +335,7 @@ class BaseStackImportanceAgent:
         for atompair, radius, color in zip(atompair_list, radius_list, color_list):
             positions = self.get_pair_positions_by_resid_names(u, resid_i, resid_j, atompair[0], atompair[1])
             temp_lines = [f'graphics 0 color {color}',
-                          self.__get_draw_edge_line(positions, 0, 1, radius)]
+                          self.get_draw_edge_line(positions, 0, 1, radius)]
             lines += temp_lines
         tcl_out = path.join(self.tcl_folder, 'show_basestack_pair.tcl')
         self.write_tcl_out(tcl_out, lines)
@@ -354,7 +355,7 @@ class BaseStackImportanceAgent:
         for atompair, radius, color in zip(atompair_list, radius_list, color_list):
             positions = self.get_pair_positions_by_resid_names(u, resid_i, resid_j, atompair[0], atompair[1])
             temp_lines = [f'graphics 0 color {color}',
-                          self.__get_draw_edge_line(positions, 0, 1, radius)]
+                          self.get_draw_edge_line(positions, 0, 1, radius)]
             lines += temp_lines
         tcl_out = path.join(self.tcl_folder, 'show_basestack_pair.tcl')
         self.write_tcl_out(tcl_out, lines)
@@ -374,7 +375,7 @@ class BaseStackImportanceAgent:
         for atompair, radius, color in zip(atompair_list, radius_list, color_list):
             positions = self.get_pair_positions_by_resid_names(u, resid_i, resid_j, atompair[0], atompair[1])
             temp_lines = [f'graphics 0 color {color}',
-                          self.__get_draw_edge_line(positions, 0, 1, radius)]
+                          self.get_draw_edge_line(positions, 0, 1, radius)]
             lines += temp_lines
         tcl_out = path.join(self.tcl_folder, 'show_basestack_pair.tcl')
         self.write_tcl_out(tcl_out, lines)
@@ -394,7 +395,7 @@ class BaseStackImportanceAgent:
         for atompair, radius, color in zip(atompair_list, radius_list, color_list):
             positions = self.get_pair_positions_by_resid_names(u, resid_i, resid_j, atompair[0], atompair[1])
             temp_lines = [f'graphics 0 color {color}',
-                          self.__get_draw_edge_line(positions, 0, 1, radius)]
+                          self.get_draw_edge_line(positions, 0, 1, radius)]
             lines += temp_lines
         tcl_out = path.join(self.tcl_folder, 'show_basestack_pair.tcl')
         self.write_tcl_out(tcl_out, lines)
@@ -414,7 +415,7 @@ class BaseStackImportanceAgent:
         for atompair, radius, color in zip(atompair_list, radius_list, color_list):
             positions = self.get_pair_positions_by_resid_names(u, resid_i, resid_j, atompair[0], atompair[1])
             temp_lines = [f'graphics 0 color {color}',
-                          self.__get_draw_edge_line(positions, 0, 1, radius)]
+                          self.get_draw_edge_line(positions, 0, 1, radius)]
             lines += temp_lines
         tcl_out = path.join(self.tcl_folder, 'show_basestack_pair.tcl')
         self.write_tcl_out(tcl_out, lines)
@@ -434,7 +435,7 @@ class BaseStackImportanceAgent:
         for atompair, radius, color in zip(atompair_list, radius_list, color_list):
             positions = self.get_pair_positions_by_resid_names(u, resid_i, resid_j, atompair[0], atompair[1])
             temp_lines = [f'graphics 0 color {color}',
-                          self.__get_draw_edge_line(positions, 0, 1, radius)]
+                          self.get_draw_edge_line(positions, 0, 1, radius)]
             lines += temp_lines
         tcl_out = path.join(self.tcl_folder, 'show_basestack_pair.tcl')
         self.write_tcl_out(tcl_out, lines)
@@ -454,7 +455,7 @@ class BaseStackImportanceAgent:
         for atompair, radius, color in zip(atompair_list, radius_list, color_list):
             positions = self.get_pair_positions_by_resid_names(u, resid_i, resid_j, atompair[0], atompair[1])
             temp_lines = [f'graphics 0 color {color}',
-                          self.__get_draw_edge_line(positions, 0, 1, radius)]
+                          self.get_draw_edge_line(positions, 0, 1, radius)]
             lines += temp_lines
         tcl_out = path.join(self.tcl_folder, 'show_basestack_pair.tcl')
         self.write_tcl_out(tcl_out, lines)
@@ -474,7 +475,7 @@ class BaseStackImportanceAgent:
         for atompair, radius, color in zip(atompair_list, radius_list, color_list):
             positions = self.get_pair_positions_by_resid_names(u, resid_i, resid_j, atompair[0], atompair[1])
             temp_lines = [f'graphics 0 color {color}',
-                          self.__get_draw_edge_line(positions, 0, 1, radius)]
+                          self.get_draw_edge_line(positions, 0, 1, radius)]
             lines += temp_lines
         tcl_out = path.join(self.tcl_folder, 'show_basestack_pair.tcl')
         self.write_tcl_out(tcl_out, lines)
@@ -494,7 +495,7 @@ class BaseStackImportanceAgent:
         for atompair, radius, color in zip(atompair_list, radius_list, color_list):
             positions = self.get_pair_positions_by_resid_names(u, resid_i, resid_j, atompair[0], atompair[1])
             temp_lines = [f'graphics 0 color {color}',
-                          self.__get_draw_edge_line(positions, 0, 1, radius)]
+                          self.get_draw_edge_line(positions, 0, 1, radius)]
             lines += temp_lines
         tcl_out = path.join(self.tcl_folder, 'show_basestack_pair.tcl')
         self.write_tcl_out(tcl_out, lines)
@@ -514,7 +515,7 @@ class BaseStackImportanceAgent:
         for atompair, radius, color in zip(atompair_list, radius_list, color_list):
             positions = self.get_pair_positions_by_resid_names(u, resid_i, resid_j, atompair[0], atompair[1])
             temp_lines = [f'graphics 0 color {color}',
-                          self.__get_draw_edge_line(positions, 0, 1, radius)]
+                          self.get_draw_edge_line(positions, 0, 1, radius)]
             lines += temp_lines
         tcl_out = path.join(self.tcl_folder, 'show_basestack_pair.tcl')
         self.write_tcl_out(tcl_out, lines)
@@ -534,7 +535,7 @@ class BaseStackImportanceAgent:
         for atompair, radius, color in zip(atompair_list, radius_list, color_list):
             positions = self.get_pair_positions_by_resid_names(u, resid_i, resid_j, atompair[0], atompair[1])
             temp_lines = [f'graphics 0 color {color}',
-                          self.__get_draw_edge_line(positions, 0, 1, radius)]
+                          self.get_draw_edge_line(positions, 0, 1, radius)]
             lines += temp_lines
         tcl_out = path.join(self.tcl_folder, 'show_basestack_pair.tcl')
         self.write_tcl_out(tcl_out, lines)

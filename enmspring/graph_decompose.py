@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from enmspring.graphs import hosts
 from enmspring.graphs import Stack, BackboneRibose, onlyHB
+from enmspring.graphs_bigtraj import StackMeanModeAgent
 
 class SixStack:
     d_titles = {'a_tract_21mer': ('A-Tract: (AA)', 'A-Tract: (TT)'), 'g_tract_21mer': ('G-Tract: (GG)', 'G-Tract: (CC)'),
@@ -138,7 +139,7 @@ class AtomImportance:
         ax.set_xticks(xticks)
         ax.set_xticklabels(range(start_mode, end_mode+1))
         ax.legend(ncol=1, loc='center right', bbox_to_anchor=bbox_to_anchor)
-        ax.set_title(self.get_title(strandid))
+        #ax.set_title(self.get_title(strandid))
         return fig, ax
 
     def plot_lambda_qTDq_respective_atoms_by_resname(self, figsize, strandid, resname, start_mode, end_mode, bbox_to_anchor):
@@ -165,9 +166,11 @@ class AtomImportance:
         ax.set_title(self.get_title_by_resname(resname))
         return fig, ax
 
-    def get_title(self, strandid):
+    def get_title(self, strandid, sum_eigenvalue):
         d_strandid = {'STRAND1': 0, 'STRAND2': 1}
-        return self.d_titles[self.host][d_strandid[strandid]]
+        title1 = self.d_titles[self.host][d_strandid[strandid]]
+        title2 = f'Sum: {sum_eigenvalue:.3f}'
+        return f'{title1}  {title2}  Exclude Fraying'
 
     def get_title_by_resname(self, resname):
         return self.d_titles[self.host][resname]
@@ -225,7 +228,7 @@ class PairImportance(AtomImportance):
 
     def plot_lambda_qTAq_respective_atoms_single_mode(self, figsize, strandid, mode_id_strand, bbox_to_anchor, ylim=None, assist_lines=None):
         mode_id_molecule = self.d_strand[strandid][mode_id_strand-1]
-        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize)
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize, facecolor='white')
         self.plot_lambda_qTAq_respective_atoms_one_mode(ax, strandid, mode_id_molecule, mode_id_strand, bbox_to_anchor, ylim, assist_lines)
         return fig, ax
 
@@ -258,16 +261,15 @@ class PairImportance(AtomImportance):
         w_small = 0.5
         w_big = 0.8
         d_xarray = self.get_d_xarray(atomlist, d_atomlist, w_small, w_big)
-        d_result = self.get_d_result(atomlist, d_atomlist, strandid, mode_id)
+        d_result, sum_eigenvalue = self.get_d_result(atomlist, d_atomlist, strandid, mode_id)
         xticks, xticklabels = self.get_xticks_xticklabels(atomlist, d_xarray, d_atomlist)
         for atomname in atomlist:
             ax.bar(d_xarray[atomname], d_result[atomname], w_small, label=atomname, edgecolor='white', color=self.d_color[atomname])
-        ax.set_ylabel(self.get_ylabel(mode_id_strand))
-        ax.set_xlabel('Mode id, $i$')
+        ax.set_ylabel(self.get_ylabel(mode_id))
         ax.set_xticks(xticks)
         ax.set_xticklabels(xticklabels)
         ax.legend(ncol=1, loc='center right', bbox_to_anchor=bbox_to_anchor)
-        ax.set_title(self.get_title(strandid))
+        ax.set_title(self.get_title(strandid, sum_eigenvalue))
         if ylim is not None:
             ax.set_ylim(ylim)
         if assist_lines is not None:
@@ -341,6 +343,7 @@ class PairImportance(AtomImportance):
 
     def get_d_result(self, atomlist, d_atomlist, strandid, mode_id):
         d_result = dict()
+        sum_eigenvalue = 0.
         for atomname1 in atomlist:
             d_result[atomname1] = np.zeros(len(d_atomlist[atomname1]))
             for idx, atomname2 in enumerate(d_atomlist[atomname1]):
@@ -348,7 +351,8 @@ class PairImportance(AtomImportance):
                 A_mat = self.g_agent.get_A_by_atomname1_atomname2(atomname1, atomname2, strandid)
                 qTAq = np.dot(q.T, np.dot(A_mat, q))
                 d_result[atomname1][idx] = qTAq
-        return d_result
+                sum_eigenvalue += qTAq
+        return d_result, sum_eigenvalue
 
     def get_d_result_by_resnames(self, atomlist, d_atomlist, strandid, resname_i, resname_j, mode_id):
         d_result = dict()
@@ -360,6 +364,26 @@ class PairImportance(AtomImportance):
                 qTAq = np.dot(q.T, np.dot(A_mat, q))
                 d_result[atomname1][idx] = qTAq
         return d_result
+
+
+class PairImportanceMeanStack(PairImportance):
+    def __init__(self, host, rootfolder, interval_time):
+        self.host = host
+        self.rootfolder = rootfolder
+        self.interval_time = interval_time
+        self.g_agent = self.get_g_agent_and_preprocess()
+        self.d_strand = {'STRAND1': self.g_agent.strand1_array, 'STRAND2': self.g_agent.strand2_array}
+
+    def get_g_agent_and_preprocess(self):
+        g_agent = StackMeanModeAgent(self.host, self.rootfolder, self.interval_time)
+        g_agent.process_first_small_agent()
+        g_agent.initialize_nodes_information()
+        g_agent.load_mean_mode_laplacian_from_npy()
+        g_agent.set_degree_adjacency_from_laplacian()
+        g_agent.eigen_decompose()
+        g_agent.set_benchmark_array()
+        g_agent.set_strand_array()
+        return g_agent
 
 class Bar4Plot:
     #hosts = ['a_tract_21mer', 'atat_21mer', 'g_tract_21mer', 'gcgc_21mer']
