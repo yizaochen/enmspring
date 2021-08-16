@@ -30,12 +30,25 @@ class ScatterTwoStrand:
                 ax.scatter(df_group['Mean-Mode-lambda'], df_group['Mean-r-alpha'], s=6, color=self.colors[group_id], alpha=0.9)
             self.set_xy_label_lims(ax, xlims, ylims, strand_id)
             if addtext:
-                self.add_texts(ax, data_group)
-
+                self.add_texts(ax, data_group[0])
         return fig, axes
 
-    def add_texts(self, ax, data_group):
-        df_sele_group = data_group[0]
+    def plot_main_by_pair_criteria(self, n_sele_group, d_criteria_mean_mode_lambda, d_criteria_mean_r_alpha, xlims, ylims, addtext):
+        fig, axes = plt.subplots(nrows=2, ncols=1, figsize=self.figsize, facecolor="white")
+        for ax_id, strand_id in enumerate(self.strandid_list):
+            ax = axes[ax_id]
+            df_strand = self.get_df_by_strand(strand_id)
+            ax.scatter(df_strand['Mean-Mode-lambda'], df_strand['Mean-r-alpha'], s=6, color='gray', alpha=0.9)
+            data_group = self.get_groups_by_two_criteria(ax, n_sele_group, d_criteria_mean_mode_lambda, d_criteria_mean_r_alpha, strand_id)
+            for df_group in data_group:
+                ax.scatter(df_group['Mean-Mode-lambda'], df_group['Mean-r-alpha'], s=6, color='blue', alpha=0.9)
+            self.set_xy_label_lims(ax, xlims, ylims, strand_id)
+            if addtext:
+                for df_group in data_group:
+                    self.add_texts(ax, df_group)
+        return fig, axes
+
+    def add_texts(self, ax, df_sele_group):
         offset_x = 0.05
         offset_y = 0.001
         text_x_list = df_sele_group['Mean-Mode-lambda'].tolist()
@@ -61,6 +74,23 @@ class ScatterTwoStrand:
         mask = df_strand['Mean-Mode-lambda'] >= criteria_mean_mode_lambda
         ax.axvline(criteria_mean_mode_lambda, color='red', alpha=0.2)
         return [df_strand[mask], df_strand[~mask]]
+
+    def get_groups_by_two_criteria(self, ax, n_sele_group, d_criteria_mean_mode_lambda, d_criteria_mean_r_alpha, strand_id):
+        df_lst = list()
+        df_strand = self.get_df_by_strand(strand_id)
+        for group_idx in range(n_sele_group):
+            min_lambda, max_lambda = d_criteria_mean_mode_lambda[strand_id][group_idx]
+            min_r_alpha, max_r_alpha = d_criteria_mean_r_alpha[strand_id][group_idx]
+            mask = (df_strand['Mean-Mode-lambda'] >= min_lambda) & (df_strand['Mean-Mode-lambda'] < max_lambda)
+            df1 = df_strand[mask]
+            mask = (df1['Mean-r-alpha'] >= min_r_alpha) & (df1['Mean-r-alpha'] < max_r_alpha)
+            df_lst.append(df1[mask])
+            
+            ax.axvline(min_lambda, color='red', alpha=0.2)
+            ax.axvline(max_lambda, color='red', alpha=0.2)
+            ax.axhline(min_r_alpha, color='red', alpha=0.2)
+            ax.axhline(max_r_alpha, color='red', alpha=0.2)
+        return df_lst
 
     def make_df_all_modes(self):
         x = self.p_agent.mean_modes_w
