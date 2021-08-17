@@ -24,7 +24,7 @@ class AtomSeparatePlot:
         self.xticks = range(3,22,3)
         
     def plot_eigenvector_by_eigv_id(self, eigv_id, s_agent, b_agent, ylim=None):
-        fig, axes = plt.subplots(nrows=2, ncols=6, figsize=self.figsize, facecolor='white')
+        fig, axes = plt.subplots(nrows=2, ncols=6, figsize=self.figsize, facecolor='white', sharey=True)
         d_axes = self.get_d_axes(axes)
         for atomname in self.atom_list:
             self.barplot_single_atom(d_axes[atomname], atomname, eigv_id, s_agent, b_agent)

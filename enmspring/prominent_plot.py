@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
+from sklearn.cluster import KMeans
 from enmspring.graphs_bigtraj import ProminentModes
 from enmspring.abbr import Abbreviation
 
@@ -115,3 +117,88 @@ class ScatterTwoStrand:
         self.p_agent.s_agent.initialize_nodes_information()
         self.p_agent.s_agent.set_benchmark_array()
         self.p_agent.s_agent.set_strand_array()
+
+class BoxScatterKmean(ScatterTwoStrand):
+    ttfz = 16
+    lbfz = 14
+
+    def __init__(self, host, rootfolder, interval_time):
+        self.host = host
+        self.rootfolder = rootfolder
+        self.interval_time = interval_time
+
+        self.p_agent = ProminentModes(host, rootfolder, interval_time)
+        self.ini_p_agent()
+
+        self.df_all_modes = self.make_df_all_modes()
+        self.d_df_by_strand = self.make_d_df_by_strand()
+
+    def plot_main(self, strandid, n_clusters, figsize):
+        df = self.d_df_by_strand[strandid]
+        df_top5_percent = self.get_df_top5percent(df)
+        fig = plt.figure(constrained_layout=True, figsize=figsize)
+        ax1, ax2, ax3 = self.get_ax123(fig)
+
+        self.box_plot(ax1, df)
+        self.set_title(ax1, strandid)
+        
+        self.scatter_plot(ax2, df, df_top5_percent)
+        self.set_xylabel(ax2)
+        xlim_ax2 = ax2.get_xlim()
+        ax1.set_xlim(xlim_ax2)
+
+        df_top5_percent = self.get_kmean_df(df_top5_percent, n_clusters)
+        self.scatter_kmeans(ax3, df_top5_percent, n_clusters)
+        ax3.set_title(f'k-Means Clustering: k={n_clusters}')
+        self.set_xylabel(ax3)
+
+    def get_ax123(self, fig):
+        gs = fig.add_gridspec(12, 1)
+        ax1 = fig.add_subplot(gs[0:2, 0])
+        ax2 = fig.add_subplot(gs[2:7, 0])
+        ax3 = fig.add_subplot(gs[7:, 0])
+        return ax1, ax2, ax3
+
+    def get_df_top5percent(self, df):
+        mask = df['Mean-Mode-lambda'] >= df['Mean-Mode-lambda'].quantile(0.95)
+        return df[mask]
+
+    def get_kmean_df(self, df_top5_percent, n_clusters):
+        n_selection = df_top5_percent.shape[0]
+        eigv_mat = np.zeros((n_selection, self.p_agent.s_agent.n_node))
+        for eigv_id in range(1, n_selection+1):
+            eigv_mat[eigv_id-1,:] = np.abs(self.p_agent.s_agent.get_eigenvector_by_id(eigv_id))
+        labels = pd.Series(KMeans(n_clusters=n_clusters, random_state=0).fit(eigv_mat).labels_).values
+        return df_top5_percent.assign(kmeans_label=labels)
+
+    def box_plot(self, ax, df):
+        ax.boxplot([df['Mean-Mode-lambda']], vert=False, widths=4, whis=(5,95))
+        ax.set_axis_off()
+
+    def set_title(self, ax, strand_id):
+        host_abbr = Abbreviation.get_abbreviation(self.host)
+        title = f'{host_abbr} {strand_id}'
+        ax.set_title(title,fontsize=self.ttfz)
+
+    def scatter_plot(self, ax, df, df_top5_percent):
+        ax.scatter(df['Mean-Mode-lambda'], df['Mean-r-alpha'], s=6, color='grey')
+        ax.scatter(df_top5_percent['Mean-Mode-lambda'], df_top5_percent['Mean-r-alpha'], s=6, color='blue')
+        
+    def scatter_kmeans(self, ax, df_top5_percent, n_clusters):
+        offset_x = 0.05
+        offset_y = 0.001
+        for kmean_label in range(n_clusters):
+            mask = df_top5_percent['kmeans_label'] == kmean_label
+            df_sele = df_top5_percent[mask]
+            ax.scatter(df_sele['Mean-Mode-lambda'], df_sele['Mean-r-alpha'], s=10)
+            
+            text_x_list = df_sele['Mean-Mode-lambda'].tolist()
+            text_y_list = df_sele['Mean-r-alpha'].tolist()
+            text_list = df_sele['Mode-ID'].tolist()
+            for text, x, y in zip(text_list, text_x_list, text_y_list):
+                ax.text(x+offset_x, y+offset_y, text)
+
+    def set_xylabel(self, ax):
+        ax.set_xlabel(r'$\lambda_{\alpha}$', fontsize=self.lbfz)
+        ax.set_ylabel(r'$\left< r_{\alpha}\right>$', fontsize=self.lbfz)
+
