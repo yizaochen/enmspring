@@ -133,10 +133,10 @@ class BoxScatterKmean(ScatterTwoStrand):
         self.df_all_modes = self.make_df_all_modes()
         self.d_df_by_strand = self.make_d_df_by_strand()
 
-    def plot_main(self, strandid, n_clusters, figsize):
+    def plot_main_by_kmean(self, strandid, n_clusters, figsize):
         df = self.d_df_by_strand[strandid]
         df_top5_percent = self.get_df_top5percent(df)
-        fig = plt.figure(constrained_layout=True, figsize=figsize)
+        fig = plt.figure(constrained_layout=True, figsize=figsize, facecolor='white')
         ax1, ax2, ax3 = self.get_ax123(fig)
 
         self.box_plot(ax1, df)
@@ -149,7 +149,27 @@ class BoxScatterKmean(ScatterTwoStrand):
 
         df_top5_percent = self.get_kmean_df(df_top5_percent, n_clusters)
         self.scatter_kmeans(ax3, df_top5_percent, n_clusters)
-        ax3.set_title(f'k-Means Clustering: k={n_clusters}')
+        ax3.set_title(f'Number of Group: {n_clusters}')
+        self.set_xylabel(ax3)
+
+    def plot_main_by_dmap(self, strandid, figsize):
+        df = self.d_df_by_strand[strandid]
+        df_top5_percent = self.get_df_top5percent(df)
+        fig = plt.figure(constrained_layout=True, figsize=figsize, facecolor='white')
+        ax1, ax2, ax3 = self.get_ax123(fig)
+
+        self.box_plot(ax1, df)
+        self.set_title(ax1, strandid)
+        
+        self.scatter_plot(ax2, df, df_top5_percent)
+        self.set_xylabel(ax2)
+        xlim_ax2 = ax2.get_xlim()
+        ax1.set_xlim(xlim_ax2)
+
+        df_top5_percent = self.get_label_df_by_dmap(df_top5_percent, strandid)
+        n_clusters = len(list(set(df_top5_percent['kmeans_label'].tolist())))
+        self.scatter_kmeans(ax3, df_top5_percent, n_clusters)
+        ax3.set_title(f'Number of Group: {n_clusters}')
         self.set_xylabel(ax3)
 
     def get_ax123(self, fig):
@@ -169,6 +189,18 @@ class BoxScatterKmean(ScatterTwoStrand):
         for eigv_id in range(1, n_selection+1):
             eigv_mat[eigv_id-1,:] = np.abs(self.p_agent.s_agent.get_eigenvector_by_id(eigv_id))
         labels = pd.Series(KMeans(n_clusters=n_clusters, random_state=0).fit(eigv_mat).labels_).values
+        return df_top5_percent.assign(kmeans_label=labels)
+
+    def get_label_df_by_dmap(self, df_top5_percent, strandid):
+        d_map = {'a_tract_21mer': {'STRAND1': {}, 
+                                   'STRAND2': {}},
+                 'g_tract_21mer': {'STRAND1': {1: 0, 2: 0, 3: 1, 4: 0, 5: 1, 7: 1, 8: 2, 10: 2, 11: 1, 13: 1, 14: 0, 15: 1}, 
+                                   'STRAND2': {}}
+                }
+        sub_d_map = d_map[self.host][strandid]
+        modeid_lst = df_top5_percent['Mode-ID'].tolist()
+        labels = [sub_d_map[mode_id] for mode_id in modeid_lst]
+        labels = pd.Series(labels).values
         return df_top5_percent.assign(kmeans_label=labels)
 
     def box_plot(self, ax, df):

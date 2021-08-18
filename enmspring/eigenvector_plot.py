@@ -123,6 +123,99 @@ class AtomSeparatePlot:
             axes[row_id, col_id].set_xlabel(xlabel, fontsize=self.lbfz)
 
 
+class AtomSeparatePlotPurPyr(AtomSeparatePlot):
+    d_basetypes = {
+        'tat_21mer': ['A', 'T', 'G', 'C'],
+        'gcgc_21mer': ['G', 'C']
+    }
+    d_ncol = {'tat_21mer': 8, 'gcgc_21mer': 5}
+
+    def __init__(self, host, figsize):
+        self.host = host
+        self.base_type = self.d_basetypes[host]
+        self.figsize = figsize
+
+        self.atom_list = self.get_atomlist_by_union()
+        self.n_atom = len(self.atom_list)
+
+        self.w = 1
+        #self.w, self.xlist = self.get_width_xlist()
+        self.xticks = range(3,22,3)
+        
+    def plot_eigenvector_by_eigv_id(self, eigv_id, s_agent, b_agent, ylim=None):
+        fig, axes = plt.subplots(nrows=2, ncols=8, figsize=self.figsize, facecolor='white', sharey=True)
+        d_axes = self.get_d_axes(axes)
+        for atomname in self.atom_list:
+            self.barplot_single_atom(d_axes[atomname], atomname, eigv_id, s_agent, b_agent)
+        if ylim is not None:
+            self.set_all_ylims(d_axes, ylim)
+        self.set_all_xlabel(axes)
+        self.set_all_ylabel(axes, eigv_id)
+        self.set_all_titles(d_axes)
+        self.add_fraying_lines(d_axes)
+        self.set_all_xlims(d_axes)
+        self.remove_axes(axes)
+        self.print_ylim(d_axes)
+        axes[0,0].legend()
+        return fig, axes
+
+    def barplot_single_atom(self, ax, atomname, eigv_id, s_agent, b_agent):
+        d_xlist = b_agent.get_d_xlist()
+        for bt in self.base_type:
+            xlist = d_xlist[bt]
+            yarray = self.get_yarray(eigv_id, atomname, s_agent, b_agent, xlist)
+            ax.bar(xlist, yarray, width=self.w, edgecolor='white', label=bt)
+        ax.set_xticks(self.xticks)
+
+    def get_yarray(self, eigv_id, atomname, s_agent, b_agent, xlist):
+        yarray = np.zeros(len(xlist))
+        eigenvector = s_agent.get_eigenvector_by_id(eigv_id) # eigenvector
+        d_idx = b_agent.get_d_idx()
+        for yarray_idx, resid in enumerate(xlist):
+            idx = d_idx[atomname][resid]
+            if idx is not None:
+                yarray[yarray_idx] = eigenvector[idx]
+        return yarray
+
+    def get_d_axes(self, axes):
+        d_axes = dict()
+        atom_idx = 0
+        
+        row_id = 0
+        for col_id in range(8):
+            atomname = self.atom_list[atom_idx]
+            d_axes[atomname] = axes[row_id, col_id]
+            atom_idx += 1
+
+        row_id = 1
+        for col_id in range(self.d_ncol[self.host]):
+            atomname = self.atom_list[atom_idx]
+            d_axes[atomname] = axes[row_id, col_id]
+            atom_idx += 1
+        return d_axes
+
+    def remove_axes(self, axes):
+        d_remove_list = {'tat_21mer': None, 'gcgc_21mer': [(1, 5), (1, 6), (1, 7)]}
+        if d_remove_list[self.host] is not None:
+            for row_id, col_id in d_remove_list[self.host]:
+                axes[row_id, col_id].remove()
+
+    def get_atomlist_by_union(self):
+        d_atommap = {'N1': 1, 'C2': 2, 'N2': 3, 'O2': 4, 'N3': 5, 'C4': 6, 'N4': 7, 'O4': 8, 'C5': 9,
+                     'C6': 10, 'N6': 11, 'O6': 12, 'C7': 13, 'N7': 14, 'C8': 15, 'N9': 16}
+        atom_list = list()
+        for bt in self.base_type:
+            atom_list += AtomSeparatePlot.d_atomlist[bt]
+        atom_list_disorder = list(set(atom_list))
+        return sorted(atom_list_disorder, key=lambda k: d_atommap[k])
+
+    def set_all_xlabel(self, axes):
+        xlabel = 'Resid'
+        row_id = 1
+        for col_id in range(self.d_ncol[self.host]):
+            axes[row_id, col_id].set_xlabel(xlabel, fontsize=self.lbfz)
+
+
 class BaseTypeEigenvector:
 
     def __init__(self, host, base_type, strand_id, s_agent):
@@ -163,3 +256,50 @@ class BaseTypeEigenvector:
 
     def get_d_idx(self):
         return self.d_idx
+
+
+class StrandEigenvector(BaseTypeEigenvector):
+    
+
+    def __init__(self, host, strand_id, s_agent):
+        self.host = host
+        self.base_type = AtomSeparatePlotPurPyr.d_basetypes[host]
+        self.strand_id = strand_id # 'STRAND1', 'STRAND2'
+
+        self.atom_list = self.get_atomlist_by_union()
+        self.n_bp = AtomSeparatePlot.n_bp
+        self.resid_list = list(range(1, self.n_bp+1))
+        self.d_seq = {'STRAND1': sequences[host]['guide'], 'STRAND2': sequences[host]['target']}
+        self.d_resid_resname_map = self.get_d_resid_resname_map()
+        
+        self.resid_map = s_agent.resid_map
+        self.atomname_map = s_agent.atomname_map
+        self.d_node_list_by_strand = s_agent.d_node_list_by_strand
+        self.d_idx_list_by_strand = s_agent.d_idx_list_by_strand
+
+        self.d_idx = self.set_d_idx()
+
+    def get_d_xlist(self):
+        d_xlist = {bt: list() for bt in self.base_type}
+        for idx, bt in enumerate(self.d_seq[self.strand_id]):
+            d_xlist[bt].append(idx+1)
+        return d_xlist
+
+    def get_atomlist_by_union(self):
+        d_atommap = {'N1': 1, 'C2': 2, 'N2': 3, 'O2': 4, 'N3': 5, 'C4': 6, 'N4': 7, 'O4': 8, 'C5': 9,
+                     'C6': 10, 'N6': 11, 'O6': 12, 'C7': 13, 'N7': 14, 'C8': 15, 'N9': 16}
+        atom_list = list()
+        for bt in self.base_type:
+            atom_list += AtomSeparatePlot.d_atomlist[bt]
+        atom_list_disorder = list(set(atom_list))
+        return sorted(atom_list_disorder, key=lambda k: d_atommap[k])
+
+    def set_d_idx(self):
+        d_idx = {atom_id: {resid: None for resid in self.resid_list} for atom_id in self.atom_list}
+        idx_list = self.d_idx_list_by_strand[self.strand_id]
+        node_list= self.d_node_list_by_strand[self.strand_id]
+        for idx, node_id in zip(idx_list, node_list):
+            resid = self.resid_map[node_id]
+            atomname = self.atomname_map[node_id]
+            d_idx[atomname][resid] = idx
+        return d_idx
