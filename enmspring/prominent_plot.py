@@ -195,7 +195,9 @@ class BoxScatterKmean(ScatterTwoStrand):
         d_map = {'a_tract_21mer': {'STRAND1': {}, 
                                    'STRAND2': {}},
                  'g_tract_21mer': {'STRAND1': {1: 0, 2: 0, 3: 1, 4: 0, 5: 1, 7: 1, 8: 2, 10: 2, 11: 1, 13: 1, 14: 0, 15: 1}, 
-                                   'STRAND2': {}}
+                                   'STRAND2': {}},
+                 'tat_21mer': {'STRAND1': {1: 0, 2: 0, 4: 0, 5: 1, 7: 2, 8: 3, 10: 0, 11: 1, 13: 3, 15: 0, 20: 4}, 
+                               'STRAND2': {3: 0, 6: 0, 9: 0, 14: 0, 17: 0, 18: 0, 12: 1, 16: 2, 19: 2, 23: 2}}
                 }
         sub_d_map = d_map[self.host][strandid]
         modeid_lst = df_top5_percent['Mode-ID'].tolist()
