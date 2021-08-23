@@ -1,7 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import cm
+from matplotlib.colors import Normalize
+from matplotlib.colorbar import ColorbarBase
+from enmspring.na_seq import sequences
 
 CMAP = 'Reds'
+
 class KMat:
     def __init__(self, s_agent):
         self.s_agent = s_agent
@@ -28,20 +33,17 @@ class KMat:
 
 class Kappa:
     d_atomlist = {'A': ['N9', 'C8', 'N7', 'C5', 'C4', 'N3', 'C2', 'N1', 'C6', 'N6'],
-                  'T': ['C4', 'C5', 'C6', 'N1', 'C2', 'N3', 'C7', 'O2', 'O4'],
-                  'C': ['C4', 'C5', 'C6', 'N1', 'C2', 'N3', 'O2', 'N4'],
+                  'T': ['N1', 'C6', 'C5', 'C4', 'N3', 'C2', 'O2', 'O4', 'C7'],
+                  'C': ['N1', 'C6', 'C5', 'C4', 'N3', 'C2', 'O2', 'N4'],
                   'G': ['N9', 'C8', 'N7', 'C5', 'C4', 'N3', 'C2', 'N1', 'C6', 'O6', 'N2']}
-    d_base_stack_types = {
-        'a_tract_21mer': {'STRAND1': ('A', 'A'), 'STRAND2': ('T', 'T')},
-        'g_tract_21mer': {'STRAND1': ('G', 'G'), 'STRAND2': ('C', 'C')}
-    }
     lbfz = 12
 
-    def __init__(self, host, strand_id, resid_i, s_agent, d_map):
+    def __init__(self, host, strand_id, resid_i, s_agent, d_map, seq):
         self.host = host
         self.strand_id = strand_id
         self.s_agent = s_agent
         self.map_idx_from_strand_resid_atomname = d_map
+        self.seq = seq
 
         self.resid_i = resid_i
         self.resid_j = resid_i + 1
@@ -50,9 +52,10 @@ class Kappa:
         self.n_atom_i = len(self.atomlst_i)
         self.n_atom_j = len(self.atomlst_j)
 
-    def heatmap(self, ax, big_k_mat):
+
+    def heatmap(self, ax, big_k_mat, norm):
         data_mat = self.get_data_mat(big_k_mat)
-        im = ax.imshow(data_mat, cmap=CMAP)
+        im = ax.imshow(data_mat, cmap=CMAP, norm=norm)
         self.set_xticks_yticks(ax)
         self.set_xlabel_ylabel(ax)
         return im
@@ -82,11 +85,14 @@ class Kappa:
         ax.set_ylabel(f'Resid {self.resid_j}', fontsize=self.lbfz)
         ax.xaxis.set_label_position('top')
 
+    def get_basetype_by_resid(self, resid):
+        return self.seq[resid-1]
+
     def get_atomlst(self):
-        basetype_1 = self.d_base_stack_types[self.host][self.strand_id][0]
-        basetype_2 = self.d_base_stack_types[self.host][self.strand_id][1]
-        atomlst_i = self.d_atomlist[basetype_1]
-        atomlst_j = self.d_atomlist[basetype_2]
+        basetype_i = self.get_basetype_by_resid(self.resid_i)
+        basetype_j = self.get_basetype_by_resid(self.resid_j)
+        atomlst_i = self.d_atomlist[basetype_i]
+        atomlst_j = self.d_atomlist[basetype_j]
         return atomlst_i, atomlst_j
 
 class KappaStrand:
@@ -108,20 +114,32 @@ class KappaStrand:
         self.n_row = 2
         self.n_col = 7
 
+        self.d_seq = {'STRAND1': sequences[host]['guide'], 'STRAND2': sequences[host]['target']}
+        self.seq = self.d_seq[strand_id]
+
         self.d_kappa = self.get_d_kappa()
 
-    def plot_all_heatmap(self, figsize, start_mode, end_mode):
+    def plot_all_heatmap(self, figsize, start_mode, end_mode, vmin, vmax):
         fig, axes = plt.subplots(nrows=self.n_row, ncols=self.n_col, figsize=figsize, facecolor='white')
         d_axes = self.get_d_axes(axes)
+        norm = Normalize(vmin=vmin, vmax=vmax)
         K_mat = self.kmat_agent.get_K_mat(start_mode, end_mode)
         for resid in self.resid_lst:
-            self.d_kappa[resid].heatmap(d_axes[resid], K_mat)
+            self.d_kappa[resid].heatmap(d_axes[resid], K_mat, norm)
         return fig, d_axes
+
+    def plot_colorbar(self, figsize, vmin, vmax):
+        fig = plt.figure(figsize=figsize, facecolor='white')
+        ax1 = fig.add_axes([0.05, 0.80, 0.9, 0.15])
+        norm = Normalize(vmin=vmin, vmax=vmax)
+        cmap = cm.get_cmap(CMAP)
+        cb1 = ColorbarBase(ax1, cmap=cmap, norm=norm, orientation='horizontal', label='k (kcal/mol/Å$^2$)')
+        return cb1
 
     def get_d_kappa(self):
         d_kappa = dict()
         for resid in self.resid_lst:
-            d_kappa[resid] = Kappa(self.host, self.strand_id, resid, self.s_agent, self.map_idx_from_strand_resid_atomname)
+            d_kappa[resid] = Kappa(self.host, self.strand_id, resid, self.s_agent, self.map_idx_from_strand_resid_atomname, self.seq)
         return d_kappa
 
     def get_kmin_kmax(self, start_mode, end_mode):
