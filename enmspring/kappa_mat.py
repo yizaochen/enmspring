@@ -1,19 +1,47 @@
 import numpy as np
+import matplotlib.pyplot as plt
+
+CMAP = 'Reds'
+class KMat:
+    def __init__(self, s_agent):
+        self.s_agent = s_agent
+        self.pre_process()
+
+        self.n_node = self.s_agent.n_node
+        self.eigvector_mat = self.s_agent.v
+
+    def get_K_mat(self, m, n):
+        K_mat = np.zeros((self.n_node, self.n_node))
+        for eigv_id in range(m, n+1):
+            lambda_mat = np.zeros((self.n_node, self.n_node))
+            lambda_mat[eigv_id-1, eigv_id-1] = self.s_agent.get_eigenvalue_by_id(eigv_id)
+            K_mat += np.dot(self.eigvector_mat, np.dot(lambda_mat, self.eigvector_mat.transpose()))
+        return K_mat
+
+    def pre_process(self):
+        self.s_agent.load_mean_mode_laplacian_from_npy()
+        self.s_agent.eigen_decompose()
+        self.s_agent.initialize_nodes_information()
+        self.s_agent.split_node_list_into_two_strand()
+        self.s_agent.set_benchmark_array()
+        self.s_agent.set_strand_array()
 
 class Kappa:
     d_atomlist = {'A': ['N9', 'C8', 'N7', 'C5', 'C4', 'N3', 'C2', 'N1', 'C6', 'N6'],
                   'T': ['C4', 'C5', 'C6', 'N1', 'C2', 'N3', 'C7', 'O2', 'O4'],
                   'C': ['C4', 'C5', 'C6', 'N1', 'C2', 'N3', 'O2', 'N4'],
-                  'G': ['N1', 'C6', 'C5', 'C4', 'N3', 'C2', 'O6', 'N2', 'N7', 'C8', 'N9']}
+                  'G': ['N9', 'C8', 'N7', 'C5', 'C4', 'N3', 'C2', 'N1', 'C6', 'O6', 'N2']}
     d_base_stack_types = {
-        'a_tract_21mer': {'STRAND1': ('A', 'A'), 'STRAND2': ('T', 'T')}
+        'a_tract_21mer': {'STRAND1': ('A', 'A'), 'STRAND2': ('T', 'T')},
+        'g_tract_21mer': {'STRAND1': ('G', 'G'), 'STRAND2': ('C', 'C')}
     }
     lbfz = 12
 
-    def __init__(self, host, strand_id, resid_i, s_agent):
+    def __init__(self, host, strand_id, resid_i, s_agent, d_map):
         self.host = host
         self.strand_id = strand_id
         self.s_agent = s_agent
+        self.map_idx_from_strand_resid_atomname = d_map
 
         self.resid_i = resid_i
         self.resid_j = resid_i + 1
@@ -22,24 +50,15 @@ class Kappa:
         self.n_atom_i = len(self.atomlst_i)
         self.n_atom_j = len(self.atomlst_j)
 
-        self.node_list = s_agent.node_list
-        self.d_idx = s_agent.d_idx
-        self.strandid_map = s_agent.strandid_map
-        self.resid_map = s_agent.resid_map
-        self.atomname_map = s_agent.atomname_map
-
-        self.map_idx_from_strand_resid_atomname = self.get_map_idx_from_strand_resid_atomname()
-
     def heatmap(self, ax, big_k_mat):
         data_mat = self.get_data_mat(big_k_mat)
-        im = ax.imshow(data_mat, cmap='Reds')
+        im = ax.imshow(data_mat, cmap=CMAP)
         self.set_xticks_yticks(ax)
         self.set_xlabel_ylabel(ax)
         return im
 
     def get_data_mat(self, big_k_mat):
         data_mat = np.zeros((self.n_atom_j, self.n_atom_i))
-        #data_mat = np.random.rand(self.n_atom_j, self.n_atom_i)
         for idx_j, atomname_j in enumerate(self.atomlst_j):
             atomid_j = self.get_atomid_by_resid_atomname(self.resid_j, atomname_j)
             for idx_i, atomname_i in enumerate(self.atomlst_i):
@@ -69,6 +88,64 @@ class Kappa:
         atomlst_i = self.d_atomlist[basetype_1]
         atomlst_j = self.d_atomlist[basetype_2]
         return atomlst_i, atomlst_j
+
+class KappaStrand:
+    resid_lst = list(range(4, 18))
+
+    def __init__(self, host, strand_id, s_agent, kmat_agent):
+        self.host = host
+        self.strand_id = strand_id
+        self.s_agent = s_agent
+        self.kmat_agent = kmat_agent
+
+        self.node_list = s_agent.node_list
+        self.d_idx = s_agent.d_idx
+        self.strandid_map = s_agent.strandid_map
+        self.resid_map = s_agent.resid_map
+        self.atomname_map = s_agent.atomname_map
+        self.map_idx_from_strand_resid_atomname = self.get_map_idx_from_strand_resid_atomname()
+
+        self.n_row = 2
+        self.n_col = 7
+
+        self.d_kappa = self.get_d_kappa()
+
+    def plot_all_heatmap(self, figsize, start_mode, end_mode):
+        fig, axes = plt.subplots(nrows=self.n_row, ncols=self.n_col, figsize=figsize, facecolor='white')
+        d_axes = self.get_d_axes(axes)
+        K_mat = self.kmat_agent.get_K_mat(start_mode, end_mode)
+        for resid in self.resid_lst:
+            self.d_kappa[resid].heatmap(d_axes[resid], K_mat)
+        return fig, d_axes
+
+    def get_d_kappa(self):
+        d_kappa = dict()
+        for resid in self.resid_lst:
+            d_kappa[resid] = Kappa(self.host, self.strand_id, resid, self.s_agent, self.map_idx_from_strand_resid_atomname)
+        return d_kappa
+
+    def get_kmin_kmax(self, start_mode, end_mode):
+        K_mat = self.kmat_agent.get_K_mat(start_mode, end_mode)
+        for idx, resid in enumerate(self.resid_lst):
+            data_mat = self.d_kappa[resid].get_data_mat(K_mat)
+            if idx == 0:
+                minimum = data_mat.min()
+                maximum = data_mat.max()
+            else:
+                minimum = np.minimum(minimum, data_mat.min())
+                maximum = np.maximum(maximum, data_mat.max())
+        print(f'Min: {minimum:.3f}  Max: {maximum:.3f}')
+        return minimum, maximum
+
+    def get_d_axes(self, axes):
+        d_axes = dict()
+        idx = 0
+        for row_id in range(self.n_row):
+            for col_id in range(self.n_col):
+                resid = self.resid_lst[idx]
+                d_axes[resid] = axes[row_id, col_id]
+                idx += 1
+        return d_axes
 
     def get_map_idx_from_strand_resid_atomname(self):
         d_result = dict()
