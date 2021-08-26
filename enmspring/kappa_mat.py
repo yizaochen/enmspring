@@ -256,3 +256,119 @@ class KappaStrand:
             atomname = self.atomname_map[node_name]
             d_result[(strand_id, resid, atomname)] = idx
         return d_result
+
+class MeanKappaStrand(KappaStrand):
+    resid_lst = list(range(5, 18))
+    d_basetype = {'a_tract_21mer': {'STRAND1': {'i': 'A', 'j': 'A', 'k': 'A'},
+                                    'STRAND2': {'i': 'T', 'j': 'T', 'k': 'T'}},
+                  'g_tract_21mer': {'STRAND1': {'i': 'G', 'j': 'G', 'k': 'G'},
+                                    'STRAND2': {'i': 'C', 'j': 'C', 'k': 'C'}}
+                 }
+    lbfz = 12
+
+    def __init__(self, host, strand_id, s_agent, kmat_agent):
+        self.host = host
+        self.strand_id = strand_id
+        self.s_agent = s_agent
+        self.kmat_agent = kmat_agent
+
+        self.node_list = s_agent.node_list
+        self.d_idx = s_agent.d_idx
+        self.strandid_map = s_agent.strandid_map
+        self.resid_map = s_agent.resid_map
+        self.atomname_map = s_agent.atomname_map
+        self.map_idx_from_strand_resid_atomname = self.get_map_idx_from_strand_resid_atomname()
+
+        self.d_seq = {'STRAND1': sequences[host]['guide'], 'STRAND2': sequences[host]['target']}
+        self.seq = self.d_seq[strand_id]
+
+        self.d_kappa = self.get_d_kappa()
+
+        self.atomlst_i, self.atomlst_j, self.atomlst_k = self.get_atomlst()
+        self.n_atom_i = len(self.atomlst_i)
+        self.n_atom_j = len(self.atomlst_j)
+        self.n_atom_k = len(self.atomlst_k)
+
+    def plot_mean_heatmap(self, figsize, start_mode, end_mode, vmin, vmax):
+        fig = plt.figure(figsize=figsize, facecolor='white')
+        axes = self.make_axes(fig)
+        norm = Normalize(vmin=vmin, vmax=vmax)
+        mean_data_mat_j, mean_data_mat_k = self.get_mean_data_mat_j_k(start_mode, end_mode)
+
+        im_k, im_j = self.heatmap(axes, mean_data_mat_j, mean_data_mat_k, norm)
+        self.set_yticks_yticklabels(axes)
+        self.set_xticks_xticklabels(axes)
+        return fig, im_k, im_j, axes
+
+    def set_yticks_yticklabels(self, axes):
+        axes[0].set_yticks(range(self.n_atom_k))
+        axes[0].set_yticklabels(self.atomlst_k)
+        axes[0].set_ylabel('Resid I-1', fontsize=self.lbfz)
+        axes[1].set_yticks(range(self.n_atom_j))
+        axes[1].set_yticklabels(self.atomlst_j)
+        axes[1].set_ylabel('Resid I+1', fontsize=self.lbfz)
+
+    def set_xticks_xticklabels(self, axes):
+        axes[0].set_xticks(range(self.n_atom_i))
+        axes[0].set_xticklabels(self.atomlst_k)
+        axes[1].set_xlabel('Resid I', fontsize=self.lbfz)
+        axes[1].set_xticks(range(self.n_atom_i))
+        axes[1].tick_params(axis='x', which='both', bottom=False, top=True, labelbottom=False)
+
+    def heatmap(self, axes, data_mat_j, data_mat_k, norm):
+        im_k = axes[0].imshow(data_mat_k, cmap=CMAP, norm=norm)
+        im_j = axes[1].imshow(data_mat_j, cmap=CMAP, norm=norm)
+        return im_k, im_j
+
+    def make_axes(self, fig):
+        gs = fig.add_gridspec(21, 1, hspace=0)
+        ax1 = fig.add_subplot(gs[0:10])
+        ax2 = fig.add_subplot(gs[11:])
+        return [ax1, ax2]
+
+    def get_mean_data_mat_j_k(self, start_mode, end_mode):
+        K_mat = self.kmat_agent.get_K_mat(start_mode, end_mode)
+        mean_data_mat_j = self.get_mean_data_mat_j(K_mat)
+        mean_data_mat_k = self.get_mean_data_mat_k(K_mat)
+        return mean_data_mat_j, mean_data_mat_k
+
+    def get_mean_data_mat_j(self, K_mat):
+        d_data_mat_j = dict()
+        for resid in self.resid_lst:
+            d_data_mat_j[resid] = self.d_kappa[resid].get_data_mat_j(K_mat)
+        mean_data_mat_j = np.zeros(d_data_mat_j[resid].shape)
+        for row_id in range(d_data_mat_j[resid].shape[0]):
+            for col_id in range(d_data_mat_j[resid].shape[1]):
+                mean_data_mat_j[row_id, col_id] = self.get_mean_matrix_element(d_data_mat_j, row_id, col_id)
+        return mean_data_mat_j
+
+    def get_mean_data_mat_k(self, K_mat):
+        d_data_mat_k = dict()
+        for resid in self.resid_lst:
+            d_data_mat_k[resid] = self.d_kappa[resid].get_data_mat_k(K_mat)
+        mean_data_mat_k = np.zeros(d_data_mat_k[resid].shape)
+        for row_id in range(d_data_mat_k[resid].shape[0]):
+            for col_id in range(d_data_mat_k[resid].shape[1]):
+                mean_data_mat_k[row_id, col_id] = self.get_mean_matrix_element(d_data_mat_k, row_id, col_id)
+        return mean_data_mat_k
+
+    def get_mean_matrix_element(self, d_data_mat, row_id, col_id):
+        temp_array = np.zeros(len(self.resid_lst))
+        for idx, resid in enumerate(self.resid_lst):
+            temp_array[idx] = d_data_mat[resid][row_id, col_id]
+        return temp_array.mean()
+
+    def get_d_kappa(self):
+        d_kappa = dict()
+        for resid in self.resid_lst:
+            d_kappa[resid] = KappaUpperDown(self.host, self.strand_id, resid, self.s_agent, self.map_idx_from_strand_resid_atomname, self.seq)
+        return d_kappa
+
+    def get_atomlst(self):
+        basetype_i = self.d_basetype[self.host][self.strand_id]['i']
+        basetype_j = self.d_basetype[self.host][self.strand_id]['j']
+        basetype_k = self.d_basetype[self.host][self.strand_id]['k']
+        atomlst_i = Kappa.d_atomlist[basetype_i]
+        atomlst_j = Kappa.d_atomlist[basetype_j]
+        atomlst_k = Kappa.d_atomlist[basetype_k]
+        return atomlst_i, atomlst_j, atomlst_k
