@@ -3,7 +3,6 @@ import MDAnalysis
 import numpy as np
 from enmspring.graphs import Stack
 from enmspring.miscell import check_dir_exist_and_make
-from enmspring.graphs_bigtraj import StackMeanModeAgent
 enmspring_folder = '/home/yizaochen/codes/dna_rna/enmspring'
 all_folder = '/home/yizaochen/codes/dna_rna/all_systems'
 

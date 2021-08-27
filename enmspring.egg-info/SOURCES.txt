@@ -25,6 +25,7 @@ enmspring/spring.py
 enmspring/stack_util.py
 enmspring/vmddraw.py
 enmspring/vmddraw_meangraph.py
+enmspring/vmddraw_tribasesteps.py
 enmspring.egg-info/PKG-INFO
 enmspring.egg-info/SOURCES.txt
 enmspring.egg-info/dependency_links.txt
