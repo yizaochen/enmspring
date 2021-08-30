@@ -26,13 +26,26 @@ class TriBaseStepsVMD:
         tcl_lst = ['mol delrep 0 0', 'mol color Name', 'mol representation Licorice 0.100000 12.000000 12.000000',
                    'mol selection all', 'mol material Transparent', 'mol addrep 0']
         tcl_lst += self.tri_agent.get_tri_baseatoms_selection(i_or_j)
-        f_tcl_out = path.join(self.tcl_folder, 'highlight_tribasesteps.tcl')
+        f_tcl_out = path.join(self.tcl_folder, f'highlight_tribasesteps_{i_or_j}.tcl')
         self.write_tcl_out(f_tcl_out, tcl_lst)
 
-    def highlight_springs(self, i_or_j, d_springs, radius):
+    def highlight_dibasesteps_baseatoms(self, resid_symbol_1, resid_symbol_2):
+        tcl_lst = ['mol delrep 0 0'] * 7
+        tcl_lst += self.tri_agent.get_baseatoms_selection_licorice_vdw(resid_symbol_1)
+        tcl_lst += self.tri_agent.get_baseatoms_selection_licorice_vdw(resid_symbol_2)
+        f_tcl_out = path.join(self.tcl_folder, f'highlight_dibasesteps_{resid_symbol_1}_{resid_symbol_2}.tcl')
+        self.write_tcl_out(f_tcl_out, tcl_lst)
+
+    def highlight_springs(self, i_or_j, d_springs, radius, colorname):
         #i_or_j: 'i', 'j'
-        tcl_lst = self.tri_agent.get_highlight_springs_tcl_txt(i_or_j, d_springs, radius)
-        f_tcl_out = path.join(self.tcl_folder, 'highlight_springs.tcl')
+        tcl_lst = self.tri_agent.get_highlight_springs_tcl_txt(i_or_j, d_springs, radius, colorname)
+        f_tcl_out = path.join(self.tcl_folder, f'highlight_springs_{i_or_j}.tcl')
+        self.write_tcl_out(f_tcl_out, tcl_lst)
+
+    def highlight_dibasesteps_springs(self, res_pair, d_springs, radius, colorname):
+        tcl_lst = self.tri_agent.get_highlight_springs_tcl_txt_by_resid_symbols(d_springs, res_pair, radius, colorname)
+        symbol_1, symbol_2 = res_pair
+        f_tcl_out = path.join(self.tcl_folder, f'highlight_springs_{symbol_1}_{symbol_2}.tcl')
         self.write_tcl_out(f_tcl_out, tcl_lst)
 
     def write_tcl_out(self, tcl_out, container):
@@ -42,6 +55,13 @@ class TriBaseStepsVMD:
             f.write('\n')
         f.close()
         print(f'source {tcl_out}')
+
+    def tachyon_take_photo_cmd(self, drawzone_folder, tga_name):
+        output = path.join(drawzone_folder, tga_name)
+        str_1 = f'render Tachyon {output} '
+        str_2 = '"/usr/local/lib/vmd/tachyon_LINUXAMD64" '
+        str_3 = '-aasamples 12 %s -format TARGA -o %s.tga'
+        print(str_1+str_2+str_3)
 
 class ThreeBaseSteps:
     total_n_bp = 42
@@ -104,11 +124,20 @@ class ThreeBaseSteps:
         atom_text = ' '.join(atom_lst)
         resid = self.d_resid_map[resid_symbol]
         selection = f'mol selection (resid {resid}) and (name {atom_text})'
-        txt_list = ['mol color Name', 
-                    'mol representation VDW 0.200000 12.000000',
-                     selection,
-                    'mol material AOChalky',
-                    'mol addrep 0']
+        txt_list = ['mol color Name', 'mol representation VDW 0.200000 12.000000',
+                     selection, 'mol material AOChalky', 'mol addrep 0']
+        return txt_list
+
+    def get_baseatoms_selection_licorice_vdw(self, resid_symbol):
+        resname = self.d_resname_map[resid_symbol]
+        atom_lst = self.d_atomlist_full[resname]
+        atom_text = ' '.join(atom_lst)
+        resid = self.d_resid_map[resid_symbol]
+        selection = f'mol selection (resid {resid}) and (name {atom_text})'
+        txt_list = ['mol color Name', 'mol representation VDW 0.200000 12.000000',
+                     selection, 'mol material AOChalky', 'mol addrep 0']
+        txt_list += ['mol color Name', 'mol representation Licorice 0.100000 12.000000 12.000000',
+                     selection, 'mol material Transparent', 'mol addrep 0']
         return txt_list
 
     def get_phosphate_selection(self, resid_symbol):
@@ -124,19 +153,24 @@ class ThreeBaseSteps:
                     'mol addrep 0']
         return txt_list
 
-    def get_highlight_springs_tcl_txt(self, i_or_j, d_springs, radius):
+    def get_highlight_springs_tcl_txt(self, i_or_j, d_springs, radius, colorname):
         if i_or_j == 'i':
             res_pair_lst = [('i', 'i-1'), ('i', 'i+1')]
         else:
             res_pair_lst = [('j', 'j-1'), ('j', 'j+1')]
         txt_lst = []
         for res_pair in res_pair_lst:
-            pair_lst = d_springs[self.host][res_pair]
-            resid1 = self.d_resid_map[res_pair[0]]
-            resid2 = self.d_resid_map[res_pair[1]]
-            for atomname1, atomname2 in pair_lst:
-                positions = self.get_pair_positions_by_resid_names(self.u, resid1, resid2, atomname1, atomname2)
-                txt_lst += self.get_draw_edge_line(positions, radius)
+            txt_lst += self.get_highlight_springs_tcl_txt_by_resid_symbols(d_springs, res_pair, radius, colorname)
+        return txt_lst
+
+    def get_highlight_springs_tcl_txt_by_resid_symbols(self, d_springs, res_pair, radius, colorname):
+        txt_lst = []
+        pair_lst = d_springs[self.host][res_pair]
+        resid1 = self.d_resid_map[res_pair[0]]
+        resid2 = self.d_resid_map[res_pair[1]]
+        for atomname1, atomname2 in pair_lst:
+            positions = self.get_pair_positions_by_resid_names(self.u, resid1, resid2, atomname1, atomname2)
+            txt_lst += self.get_draw_edge_line(positions, radius, colorname)
         return txt_lst
 
     def get_pair_positions_by_resid_names(self, u, resid_i, resid_j, atomname_i, atomname_j):
@@ -145,11 +179,12 @@ class ThreeBaseSteps:
         positions[1,:] = u.select_atoms(f'resid {resid_j} and name {atomname_j}').positions[0,:]
         return positions
 
-    def get_draw_edge_line(self, positions, radius):
+    def get_draw_edge_line(self, positions, radius, colorname):
+        color_line = f'graphics 0 color {colorname}'
         str_0 = 'graphics 0 cylinder {'
         str_1 = f'{positions[0,0]:.3f} {positions[0,1]:.3f} {positions[0,2]:.3f}'
         str_2 = '} {'
         str_3 = f'{positions[1,0]:.3f} {positions[1,1]:.3f} {positions[1,2]:.3f}'
         str_4 = '} '
         str_5 = f'radius {radius:.2f}\n'
-        return [str_0 + str_1 + str_2 + str_3 + str_4 + str_5]
+        return [color_line, str_0 + str_1 + str_2 + str_3 + str_4 + str_5]
