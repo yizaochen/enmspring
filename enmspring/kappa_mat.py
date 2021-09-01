@@ -300,6 +300,17 @@ class MeanKappaStrand(KappaStrand):
         self.set_xticks_xticklabels(axes)
         return fig, im_k, im_j, axes
 
+    def plot_mean_heatmap_reverse(self, figsize, start_mode, end_mode, vmin, vmax):
+        fig = plt.figure(figsize=figsize, facecolor='white')
+        axes = self.make_axes(fig)
+        norm = Normalize(vmin=vmin, vmax=vmax)
+        mean_data_mat_j, mean_data_mat_k = self.get_mean_data_mat_j_k(start_mode, end_mode)
+
+        im_k, im_j = self.heatmap(axes, mean_data_mat_k, mean_data_mat_j, norm)
+        self.set_yticks_yticklabels_reverse(axes)
+        self.set_xticks_xticklabels(axes)
+        return fig, im_k, im_j, axes
+
     def set_yticks_yticklabels(self, axes):
         axes[0].set_yticks(range(self.n_atom_k))
         axes[0].set_yticklabels(self.atomlst_k)
@@ -307,6 +318,14 @@ class MeanKappaStrand(KappaStrand):
         axes[1].set_yticks(range(self.n_atom_j))
         axes[1].set_yticklabels(self.atomlst_j)
         axes[1].set_ylabel('Resid I+1', fontsize=self.lbfz)
+
+    def set_yticks_yticklabels_reverse(self, axes):
+        axes[1].set_yticks(range(self.n_atom_k))
+        axes[1].set_yticklabels(self.atomlst_k)
+        axes[1].set_ylabel('Resid I-1', fontsize=self.lbfz)
+        axes[0].set_yticks(range(self.n_atom_j))
+        axes[0].set_yticklabels(self.atomlst_j)
+        axes[0].set_ylabel('Resid I+1', fontsize=self.lbfz)
 
     def set_xticks_xticklabels(self, axes):
         axes[0].set_xticks(range(self.n_atom_i))
