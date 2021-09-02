@@ -265,6 +265,7 @@ class MeanKappaStrand(KappaStrand):
                                     'STRAND2': {'i': 'C', 'j': 'C', 'k': 'C'}}
                  }
     lbfz = 12
+    tickfz = 9
 
     def __init__(self, host, strand_id, s_agent, kmat_agent):
         self.host = host
@@ -311,6 +312,16 @@ class MeanKappaStrand(KappaStrand):
         self.set_xticks_xticklabels(axes)
         return fig, im_k, im_j, axes
 
+    def plot_mean_heatmap_single(self, figsize, start_mode, end_mode, vmin, vmax):
+        fig, ax = plt.subplots(figsize=figsize, facecolor='white')
+        norm = Normalize(vmin=vmin, vmax=vmax)
+        K_mat = self.kmat_agent.get_K_mat(start_mode, end_mode)
+        mean_data_mat_j = self.get_mean_data_mat_j(K_mat)
+        im_j = self.heatmap_single(ax, mean_data_mat_j, norm)
+        self.set_yticks_yticklabels_single(ax)
+        self.set_xticks_xticklabels_single(ax)
+        return fig, im_j, ax
+
     def set_yticks_yticklabels(self, axes):
         axes[0].set_yticks(range(self.n_atom_k))
         axes[0].set_yticklabels(self.atomlst_k)
@@ -327,6 +338,12 @@ class MeanKappaStrand(KappaStrand):
         axes[0].set_yticklabels(self.atomlst_j)
         axes[0].set_ylabel('Resid I+1', fontsize=self.lbfz)
 
+    def set_yticks_yticklabels_single(self, ax):
+        ax.set_yticks(range(self.n_atom_j))
+        ax.set_yticklabels(self.atomlst_j)
+        #ax.set_ylabel('Resid I+1', fontsize=self.lbfz)
+        ax.tick_params(axis='y', labelsize=self.tickfz)
+
     def set_xticks_xticklabels(self, axes):
         axes[0].set_xticks(range(self.n_atom_i))
         axes[0].set_xticklabels(self.atomlst_i)
@@ -334,10 +351,23 @@ class MeanKappaStrand(KappaStrand):
         axes[1].set_xticks(range(self.n_atom_i))
         axes[1].tick_params(axis='x', which='both', bottom=False, top=True, labelbottom=False)
 
+    def set_xticks_xticklabels_single(self, ax):
+        ax.set_xticks(range(self.n_atom_i))
+        ax.set_xticklabels(self.atomlst_i)
+        #ax.set_xlabel('Resid I', fontsize=self.lbfz)
+        ax.xaxis.tick_top()
+        ax.xaxis.set_label_position('top')
+        ax.tick_params(axis='x', labelsize=self.tickfz)
+
     def heatmap(self, axes, data_mat_j, data_mat_k, norm):
         im_k = axes[0].imshow(data_mat_k, cmap=CMAP, norm=norm)
         im_j = axes[1].imshow(data_mat_j, cmap=CMAP, norm=norm)
         return im_k, im_j
+
+    def heatmap_single(self, ax, data_mat_j, norm):
+        # Resid I: x-axis, Resid I+1: y-axis
+        im_j = ax.imshow(data_mat_j, cmap=CMAP, norm=norm)
+        return im_j
 
     def make_axes(self, fig):
         gs = fig.add_gridspec(21, 1, hspace=0)
