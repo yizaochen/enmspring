@@ -5,6 +5,7 @@ enmspring/__init__.py
 enmspring/abbr.py
 enmspring/atom.py
 enmspring/atompair.py
+enmspring/basestack_k.py
 enmspring/eigenvector_plot.py
 enmspring/fluctpair.py
 enmspring/graph_decompose.py

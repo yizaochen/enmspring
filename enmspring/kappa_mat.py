@@ -265,7 +265,7 @@ class MeanKappaStrand(KappaStrand):
                                     'STRAND2': {'i': 'C', 'j': 'C', 'k': 'C'}}
                  }
     lbfz = 12
-    tickfz = 9
+    tickfz = 6
 
     def __init__(self, host, strand_id, s_agent, kmat_agent):
         self.host = host
@@ -342,7 +342,7 @@ class MeanKappaStrand(KappaStrand):
         ax.set_yticks(range(self.n_atom_j))
         ax.set_yticklabels(self.atomlst_j)
         #ax.set_ylabel('Resid I+1', fontsize=self.lbfz)
-        ax.tick_params(axis='y', labelsize=self.tickfz)
+        ax.tick_params(axis='y', labelsize=self.tickfz, colors='fuchsia')
 
     def set_xticks_xticklabels(self, axes):
         axes[0].set_xticks(range(self.n_atom_i))
@@ -357,7 +357,7 @@ class MeanKappaStrand(KappaStrand):
         #ax.set_xlabel('Resid I', fontsize=self.lbfz)
         ax.xaxis.tick_top()
         ax.xaxis.set_label_position('top')
-        ax.tick_params(axis='x', labelsize=self.tickfz)
+        ax.tick_params(axis='x', labelsize=self.tickfz, colors='dodgerblue')
 
     def heatmap(self, axes, data_mat_j, data_mat_k, norm):
         im_k = axes[0].imshow(data_mat_k, cmap=CMAP, norm=norm)
