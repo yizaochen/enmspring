@@ -52,13 +52,17 @@ class Kappa:
         self.n_atom_i = len(self.atomlst_i)
         self.n_atom_j = len(self.atomlst_j)
 
-
     def heatmap(self, ax, big_k_mat, norm):
         data_mat = self.get_data_mat(big_k_mat)
         im = ax.imshow(data_mat, cmap=CMAP, norm=norm)
         self.set_xticks_yticks(ax)
         self.set_xlabel_ylabel(ax)
         return im
+
+    def get_k_by_atomnames(self, big_k_mat, atomname_i, atomname_j):
+        atomid_i = self.get_atomid_by_resid_atomname(self.resid_i, atomname_i)
+        atomid_j = self.get_atomid_by_resid_atomname(self.resid_j, atomname_j)
+        return big_k_mat[atomid_j, atomid_i]
 
     def get_data_mat(self, big_k_mat):
         data_mat = np.zeros((self.n_atom_j, self.n_atom_i))
@@ -88,11 +92,15 @@ class Kappa:
     def get_basetype_by_resid(self, resid):
         return self.seq[resid-1]
 
+    def get_basetype_i(self):
+        return self.get_basetype_by_resid(self.resid_i)
+
+    def get_basetype_j(self):
+        return self.get_basetype_by_resid(self.resid_j)
+
     def get_atomlst(self):
-        basetype_i = self.get_basetype_by_resid(self.resid_i)
-        basetype_j = self.get_basetype_by_resid(self.resid_j)
-        atomlst_i = self.d_atomlist[basetype_i]
-        atomlst_j = self.d_atomlist[basetype_j]
+        atomlst_i = self.d_atomlist[self.get_basetype_i()]
+        atomlst_j = self.d_atomlist[self.get_basetype_j()]
         return atomlst_i, atomlst_j
 
 class KappaUpperDown(Kappa):

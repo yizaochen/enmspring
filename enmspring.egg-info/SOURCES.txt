@@ -11,6 +11,7 @@ enmspring/fluctpair.py
 enmspring/graph_decompose.py
 enmspring/graphs.py
 enmspring/graphs_bigtraj.py
+enmspring/hb_k.py
 enmspring/hb_util.py
 enmspring/ic_table.py
 enmspring/importance_atom.py
