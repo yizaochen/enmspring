@@ -22,7 +22,7 @@ class HBResidPlot:
     split_5 = False
     one_big_window = False
 
-    lgfz = 6
+    lgfz = 5
     lbfz = 6
     tickfz = 4
 
@@ -173,3 +173,106 @@ class HBResidPlot:
                 key = f'{host}-{type_name}'
                 d_temp[key] = None
         return d_temp
+
+class HBResidPlotV1(HBResidPlot):
+    hosts = ['a_tract_21mer', 'g_tract_21mer', 'atat_21mer', 'gcgc_21mer']
+    d_color = {'type1': 'tab:blue', 'type2': 'tab:orange', 'type3': 'tab:red'}
+    d_abbr = {'a_tract_21mer': {'type1': 'rN6-yO4', 'type2': 'rN1-yN3', 'type3': 'rC2-yO2'}, 
+              'atat_21mer': {'type1': 'rN6-yO4', 'type2': 'rN1-yN3', 'type3': 'rC2-yO2'}, 
+              'g_tract_21mer': {'type1': 'rO6-yN4', 'type2': 'rN1-yN3', 'type3': 'rN2-yO2'}, 
+              'gcgc_21mer': {'type1': 'rO6-yN4', 'type2': 'rN1-yN3', 'type3': 'rN2-yO2'}}
+    group1 = ['a_tract_21mer', 'g_tract_21mer']
+    group2 = ['atat_21mer', 'gcgc_21mer']
+    group3 = ['a_tract_21mer', 'atat_21mer']
+    group4 = ['g_tract_21mer', 'gcgc_21mer']
+
+    def plot_hb_vs_resids(self, figsize, out_wspace):
+        fig, d_axes = self.get_d_axes(figsize, out_wspace)
+        for host in self.hosts:
+            self.plot_lines(d_axes[host], host)
+        self.set_yaxis_right(d_axes)
+        #self.set_ylims(d_axes)
+        self.set_ylims_all(d_axes)
+        self.set_legend(d_axes)
+        self.set_yticks(d_axes)
+        self.set_xticks(d_axes)
+        self.remove_xticks(d_axes)
+        self.set_xtick_size(d_axes)
+        self.set_ytick_size(d_axes)
+        self.set_xlabel(d_axes)
+        self.set_ylabel(d_axes)
+        return fig, d_axes
+
+    def plot_lines(self, ax, host):
+        xarray = self.get_xarray()
+        for type_name in self.typelist:
+            yarray, y_std_array = self.get_yarray(host, type_name)
+            label = self.d_abbr[host][type_name]
+            ax.errorbar(xarray, yarray, yerr=y_std_array, marker='.', color=self.d_color[type_name], linewidth=0.5, markersize=2, label=label)
+
+    def set_xlabel(self, d_axes):
+        for host in self.group4:
+            d_axes[host].set_xlabel('Base Pair ID', fontsize=self.lbfz)
+
+    def set_ylabel(self, d_axes):
+        for host in self.group1:
+            d_axes[host].set_ylabel('k (kcal/mol/Å$^2$)', fontsize=self.lbfz)
+
+    def set_xtick_size(self, d_axes):
+        for host in self.group4:
+            d_axes[host].tick_params(axis='x', labelsize=self.tickfz, length=1.5, pad=1)
+
+    def set_ytick_size(self, d_axes):
+        for host in self.hosts:
+            d_axes[host].tick_params(axis='y', labelsize=self.tickfz, length=1.5, pad=1)
+
+    def set_yticks(self, d_axes):
+        yticks = range(2, 11, 2)
+        for host in self.hosts:
+            d_axes[host].set_yticks(yticks)
+
+    def set_xticks(self, d_axes):
+        xticks = range(4, 19)
+        for host in self.hosts:
+            d_axes[host].set_xticks(xticks)
+
+    def remove_xticks(self, d_axes):
+        for host in self.group3:
+            d_axes[host].tick_params(axis='x', bottom=False, top=False, labelbottom=False)
+
+    def set_yaxis_right(self, d_axes):
+        for host in self.group2:
+            d_axes[host].yaxis.tick_right()
+            d_axes[host].yaxis.set_label_position("right")
+
+    def set_ylims_all(self, d_axes):
+        ylims = (0, 11.2)
+        for host in self.hosts:
+            d_axes[host].set_ylim(ylims)
+
+    def set_ylims(self, d_axes):
+        ylims = (0, 8)
+        for host in self.group3:
+            d_axes[host].set_ylim(ylims)
+        ylims = (2, 11.2)
+        for host in self.group4:
+            d_axes[host].set_ylim(ylims)
+
+    def set_legend(self, d_axes):
+        host = 'atat_21mer'
+        d_axes[host].legend(fontsize=self.lgfz, frameon=False)
+        host = 'gcgc_21mer'
+        d_axes[host].legend(fontsize=self.lgfz, frameon=False, ncol=3, columnspacing=0.3)
+
+    def get_d_axes(self, figsize, out_wspace):
+        fig = plt.figure(figsize=figsize, facecolor='white')
+        d_axes = {host: None for host in self.hosts}
+        outer_grid = gridspec.GridSpec(1, 2, wspace=out_wspace, hspace=0)
+        host_idx = 0
+        for outer_idx in range(2):
+            inner_grid = gridspec.GridSpecFromSubplotSpec(2, 1, hspace=0, subplot_spec=outer_grid[outer_idx])
+            for inner_idx in range(2):
+                host = self.hosts[host_idx]
+                d_axes[host] = fig.add_subplot(inner_grid[inner_idx])
+                host_idx += 1
+        return fig, d_axes

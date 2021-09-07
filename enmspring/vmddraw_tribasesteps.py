@@ -70,10 +70,10 @@ class ThreeBaseSteps:
     strand2_resid_lst = ['j-1', 'j', 'j+1']
     d_resid_lst = {'i': strand1_resid_lst, 'j': strand2_resid_lst}
     offset_lst = [-1, 0, 1]
-    d_atomlist = {'A': ['N9', 'C8', 'N7', 'C5', 'C4', 'N3', 'C2', 'N1', 'C6'],
-                  'T': ['N1', 'C6', 'C5', 'C4', 'N3', 'C2'],
-                  'C': ['N1', 'C6', 'C5', 'C4', 'N3', 'C2'],
-                  'G': ['N9', 'C8', 'N7', 'C5', 'C4', 'N3', 'C2', 'N1', 'C6']}
+    d_atomlist = {'A': ['N9', 'C8', 'N7', 'C5', 'C4', 'N3', 'C2', 'N1', 'C6', 'N6'],
+                  'T': ['N1', 'C6', 'C5', 'C4', 'N3', 'C2', 'O2', 'O4', 'C7'],
+                  'C': ['N1', 'C6', 'C5', 'C4', 'N3', 'C2', 'O2', 'N4'],
+                  'G': ['N9', 'C8', 'N7', 'C5', 'C4', 'N3', 'C2', 'N1', 'C6', 'O6', 'N2']}
     d_atomlist_full = {'A': ['N9', 'C8', 'N7', 'C5', 'C4', 'N3', 'C2', 'N1', 'C6', 'N6', 'H61', 'H62', 'H2', 'H8'],
                        'T': ['N1', 'C6', 'C5', 'C4', 'N3', 'C2', 'O2', 'O4', 'C7', 'H6', 'H71', 'H72', 'H73', 'H3'],
                        'C': ['N1', 'C6', 'C5', 'C4', 'N3', 'C2', 'O2', 'N4', 'H1', 'H21', 'H22', 'H8'],
@@ -120,7 +120,7 @@ class ThreeBaseSteps:
 
     def get_baseatoms_selection(self, resid_symbol):
         resname = self.d_resname_map[resid_symbol]
-        atom_lst = self.d_atomlist_full[resname]
+        atom_lst = self.d_atomlist[resname]
         atom_text = ' '.join(atom_lst)
         resid = self.d_resid_map[resid_symbol]
         selection = f'mol selection (resid {resid}) and (name {atom_text})'
@@ -130,7 +130,7 @@ class ThreeBaseSteps:
 
     def get_baseatoms_selection_licorice_vdw(self, resid_symbol):
         resname = self.d_resname_map[resid_symbol]
-        atom_lst = self.d_atomlist_full[resname]
+        atom_lst = self.d_atomlist[resname]
         atom_text = ' '.join(atom_lst)
         resid = self.d_resid_map[resid_symbol]
         selection = f'mol selection (resid {resid}) and (name {atom_text})'
@@ -142,7 +142,7 @@ class ThreeBaseSteps:
 
     def get_phosphate_selection(self, resid_symbol):
         resname = self.d_resname_map[resid_symbol]
-        atom_lst = self.d_atomlist_full[resname]
+        atom_lst = self.d_atomlist[resname]
         atom_text = ' '.join(atom_lst)
         resid = self.d_resid_map[resid_symbol]
         selection = f'mol selection (resid {resid}) and not (name {atom_text})'

@@ -3,9 +3,11 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.colors import Normalize
 from matplotlib.colorbar import ColorbarBase
+from matplotlib.colors import LinearSegmentedColormap
 from enmspring.na_seq import sequences
 
-CMAP = 'Reds'
+#CMAP = 'Reds'
+CMAP = LinearSegmentedColormap.from_list('mycmap', ['white','red'])
 
 class KMat:
     def __init__(self, s_agent):
@@ -320,15 +322,21 @@ class MeanKappaStrand(KappaStrand):
         self.set_xticks_xticklabels(axes)
         return fig, im_k, im_j, axes
 
-    def plot_mean_heatmap_single(self, figsize, start_mode, end_mode, vmin, vmax):
+    def plot_mean_heatmap_single(self, figsize, start_mode, end_mode, vmin, vmax, dot_criteria):
         fig, ax = plt.subplots(figsize=figsize, facecolor='white')
         norm = Normalize(vmin=vmin, vmax=vmax)
         K_mat = self.kmat_agent.get_K_mat(start_mode, end_mode)
         mean_data_mat_j = self.get_mean_data_mat_j(K_mat)
         im_j = self.heatmap_single(ax, mean_data_mat_j, norm)
+        self.scatter_center_over_criteria(ax, mean_data_mat_j, dot_criteria)
         self.set_yticks_yticklabels_single(ax)
         self.set_xticks_xticklabels_single(ax)
         return fig, im_j, ax
+
+    def scatter_center_over_criteria(self, ax, data_mat, dot_criteria):
+        indices = np.where(data_mat.transpose() >= dot_criteria)
+        #ax.scatter([0,1,2], [0,1,2], s=1, color='black')
+        ax.scatter(indices[0], indices[1], s=0.8, color='black')
 
     def set_yticks_yticklabels(self, axes):
         axes[0].set_yticks(range(self.n_atom_k))
