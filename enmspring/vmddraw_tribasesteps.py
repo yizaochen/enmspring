@@ -29,6 +29,15 @@ class TriBaseStepsVMD:
         f_tcl_out = path.join(self.tcl_folder, f'highlight_tribasesteps_{i_or_j}.tcl')
         self.write_tcl_out(f_tcl_out, tcl_lst)
 
+    def highlight_ij_for_hb_basepairing(self):
+        tcl_lst = ['mol delrep 0 0']
+        tcl_lst += self.tri_agent.get_baseatoms_selection_licorice_vdw('i')
+        tcl_lst += self.tri_agent.get_baseatoms_selection_licorice_vdw('j')
+        tcl_lst += self.tri_agent.get_baseatoms_hb_selection('i')
+        tcl_lst += self.tri_agent.get_baseatoms_hb_selection('j')
+        f_tcl_out = path.join(self.tcl_folder, f'highlight_hb.tcl')
+        self.write_tcl_out(f_tcl_out, tcl_lst)
+
     def highlight_dibasesteps_baseatoms(self, resid_symbol_1, resid_symbol_2):
         tcl_lst = ['mol delrep 0 0'] * 7
         tcl_lst += self.tri_agent.get_baseatoms_selection_licorice_vdw(resid_symbol_1)
@@ -78,6 +87,10 @@ class ThreeBaseSteps:
                        'T': ['N1', 'C6', 'C5', 'C4', 'N3', 'C2', 'O2', 'O4', 'C7', 'H6', 'H71', 'H72', 'H73', 'H3'],
                        'C': ['N1', 'C6', 'C5', 'C4', 'N3', 'C2', 'O2', 'N4', 'H1', 'H21', 'H22', 'H8'],
                        'G': ['N9', 'C8', 'N7', 'C5', 'C4', 'N3', 'C2', 'N1', 'C6', 'O6', 'N2', 'H41', 'H42', 'H5', 'H6']}
+    d_atomlist_hb = {'A': ['N6', 'H61', 'H62', 'C2', 'H2'],
+                     'T': ['N3', 'H3'],
+                     'G': ['N1', 'H1', 'N2', 'H21', 'H22'],
+                     'C': ['N4', 'H42', 'H41']}
 
     def __init__(self, host, resid_i, pdb):
         self.host = host
@@ -125,6 +138,16 @@ class ThreeBaseSteps:
         resid = self.d_resid_map[resid_symbol]
         selection = f'mol selection (resid {resid}) and (name {atom_text})'
         txt_list = ['mol color Name', 'mol representation VDW 0.200000 12.000000',
+                     selection, 'mol material AOChalky', 'mol addrep 0']
+        return txt_list
+
+    def get_baseatoms_hb_selection(self, resid_symbol):
+        resname = self.d_resname_map[resid_symbol]
+        atom_lst = self.d_atomlist_hb[resname]
+        atom_text = ' '.join(atom_lst)
+        resid = self.d_resid_map[resid_symbol]
+        selection = f'mol selection (resid {resid}) and (name {atom_text})'
+        txt_list = ['mol color Name', 'mol representation Licorice 0.100000 12.000000 12.000000',
                      selection, 'mol material AOChalky', 'mol addrep 0']
         return txt_list
 

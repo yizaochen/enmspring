@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 from enmspring import pairtype
 from enmspring.spring import Spring
-from enmspring.k_b0_util import get_df_by_filter_st, get_df_by_filter_PP, get_df_by_filter_R
+from enmspring.k_b0_util import get_df_by_filter_st, get_df_by_filter_PP, get_df_by_filter_R, get_df_by_filter_RB
 from enmspring.hb_util import HBAgent
 from enmspring.na_seq import sequences
 from enmspring.networkx_display import THY_Base, CYT_Base, ADE_Base, GUA_Base, THY_Right_Base, CYT_Right_Base, ADE_Right_Base, GUA_Right_Base
@@ -44,6 +44,7 @@ class GraphAgent:
         self.adjacency_mat = None
         self.degree_mat = None
         self.laplacian_mat = None
+        self.b0_mat = None
 
         self.w = None  # Eigenvalue array
         self.v = None  # Eigenvector matrix, the i-th column is the i-th eigenvector
@@ -73,6 +74,7 @@ class GraphAgent:
         self.adjacency_mat = np.zeros((self.n_node, self.n_node))
         self.degree_mat = np.zeros((self.n_node, self.n_node))
         self.laplacian_mat = np.zeros((self.n_node, self.n_node))
+        self.b0_mat = np.zeros((self.n_node, self.n_node))
         print('Initialize adjacency, degree and Laplacian matrices... Done.')
 
     def build_degree_from_adjacency(self):
@@ -327,6 +329,15 @@ class GraphAgent:
         k_list = df_sele['k'].tolist()
         for idx_i, idx_j, k in zip(idx_i_list, idx_j_list, k_list):
             self.adjacency_mat[idx_i, idx_j] = k
+
+    def set_b0_mat_by_df(self, df_sele):
+        idx_i_list = self.__get_idx_list(df_sele['Atomid_i'])
+        idx_j_list = self.__get_idx_list(df_sele['Atomid_j'])
+        b0_list = df_sele['b0'].tolist()
+        for idx_i, idx_j, b0 in zip(idx_i_list, idx_j_list, b0_list):
+            self.b0_mat[idx_i, idx_j] = b0
+        i_lower = np.tril_indices(self.n_node, -1)
+        self.b0_mat[i_lower] = self.b0_mat.transpose()[i_lower]  # make the matrix symmetric
 
     def set_adjacency_by_d(self, d_sele):
         idx_i_list = self.__get_idx_list(d_sele['Atomid_i'])
@@ -602,7 +613,7 @@ class BackboneRibose(GraphAgent):
         idx = 0
         for cgname, atomname in self.atomname_map.items():
             atom_type = pairtype.d_atomcgtype[atomname]
-            if (atom_type == 'P') or (atom_type == 'S'):
+            if (atom_type == 'P') or (atom_type == 'S') or (atom_type == 'B'):
                 node_list.append(cgname)
                 d_idx[cgname] = idx
                 idx += 1
@@ -612,14 +623,13 @@ class BackboneRibose(GraphAgent):
         print(f"Thare are {self.n_node} nodes.")
 
     def get_df_backbone_ribose(self):
-        for subcategory in ['PP0', 'PP1', 'PP2', 'PP3']:
-            df_backbone = get_df_by_filter_PP(self.df_all_k, subcategory)
-        #for subcategory in ['R0', 'R1']:
-        #    df_ribose = get_df_by_filter_R(self.df_all_k, subcategory)
-        #df_backbone_ribose = pd.concat([df_backbone, df_ribose])
-        criteria = 1e-3
-        mask = (df_backbone['k'] > criteria)
-        return df_backbone[mask]
+        df_pp_lst = [get_df_by_filter_PP(self.df_all_k, subcategory) for subcategory in ['PP0', 'PP1', 'PP2']]
+        df_r_lst = [get_df_by_filter_R(self.df_all_k, subcategory) for subcategory in ['R0', 'R1']]
+        df_rb_lst = [get_df_by_filter_RB(self.df_all_k, subcategory) for subcategory in ['RB0', 'RB1', 'RB2']]
+        df_pp_r_rb = pd.concat(df_pp_lst+df_r_lst+df_rb_lst)
+        criteria = 1e-1
+        mask = (df_pp_r_rb['k'] > criteria)
+        return df_pp_r_rb[mask]
 
     def get_sele_A_by_idx(self, atomid_i, atomid_j):
         sele_A = np.zeros((self.n_node, self.n_node))
@@ -645,13 +655,12 @@ class BackboneRibose(GraphAgent):
         return df_result[columns_qTAq]
 
     def build_adjacency_from_pp_r(self):
-        for subcategory in ['PP0', 'PP1', 'PP2', 'PP3']:
-            df_sele = get_df_by_filter_PP(self.df_all_k, subcategory)
-            self.set_adjacency_by_df(df_sele)
-        #for subcategory in ['R0', 'R1']:
-        #    df_sele = get_df_by_filter_R(self.df_all_k, subcategory)
-        #    self.set_adjacency_by_df(df_sele)
+        #for subcategory in ['PP0', 'PP1', 'PP2', 'PP3']:
+        #    df_sele = get_df_by_filter_PP(self.df_all_k, subcategory)
+        df_sele = self.get_df_backbone_ribose()
+        self.set_adjacency_by_df(df_sele)
         self.make_adjacency_symmetry()
+        self.set_b0_mat_by_df(df_sele)
 
     def set_benchmark_array(self):
         idx_start_strand2 = self.d_idx['B1']

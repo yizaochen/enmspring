@@ -7,6 +7,12 @@ class StackResidPlot:
     n_bp = 21
     resid_lst = list(range(4, 18))
     strand_id_lst = ['STRAND1', 'STRAND2']
+
+    all_pair = {'a_tract_21mer': {'STRAND1': {'i': 'N1', 'j': 'C6'}, 'STRAND2': {'i': 'N3', 'j': 'C4'}},
+                'atat_21mer': {'STRAND1': {'A': 'C4', 'T': 'C5'}, 'STRAND2': {'A': 'C4', 'T': 'C5'}},
+                'gcgc_21mer': {'STRAND1': {'G': 'C4', 'C': 'C4'}, 'STRAND2': {'G': 'C4', 'C': 'C4'}},
+                'g_tract_21mer': {'STRAND1': {'i': 'N1', 'j': 'C6'}, 'STRAND2': {'i': 'N3', 'j': 'C4'}}
+                }
     
 
     tickfz = 4
@@ -27,7 +33,7 @@ class StackResidPlot:
         self.d_seq = {'STRAND1': sequences[host]['guide'], 'STRAND2': sequences[host]['target']}
         self.d_kappa = self.get_d_kappa()
 
-    def plot_two_strands(self, figsize, start_mode, end_mode):
+    def plot_two_strands(self, figsize, start_mode, end_mode, ylims):
         big_k_mat = self.kmat_agent.get_K_mat(start_mode, end_mode)
         fig, axes = plt.subplots(nrows=2, ncols=1, figsize=figsize, facecolor='white')
         d_axes = self.get_d_axes(axes)
@@ -35,19 +41,20 @@ class StackResidPlot:
             self.plot_lines(d_axes[strand_id], strand_id, big_k_mat)
             self.set_xticks(d_axes)
             self.set_ylabel_xlabel(d_axes[strand_id])
+            self.set_ylims(d_axes[strand_id], ylims)
         return fig, d_axes
 
     def plot_lines(self, ax, strand_id, big_k_mat):
-        #pair_d_lst = [{'A': 'C4', 'T': 'C5'}, {'A': 'N1', 'T': 'N3'}, {'A': 'C6', 'T': 'C4'}]
-        #pair_lst = ['ADE:C4---THY:C5', 'ADE:N1---THY:N3', 'ADE:C6---THY:C4']
-        pair_d_lst = [{'A': 'C4', 'T': 'C5'}]
-        pair_lst = ['ADE:C4---THY:C5']
+        pair_dict = self.all_pair[self.host][strand_id]
         xarray = self.get_xarray()
-        for idx, pair_dict in enumerate(pair_d_lst):
-            pair_name = pair_lst[idx]
+        if self.host in ['atat_21mer', 'gcgc_21mer']:
             yarray = self.get_yarray(pair_dict, strand_id, big_k_mat)
-            #yarray = np.random.rand(xarray.shape[0])
-            ax.plot(xarray, yarray, marker='.', label=pair_name, linewidth=0.5, markersize=2)
+        else:
+            yarray = self.get_yarray_homogeneous(pair_dict, strand_id, big_k_mat)
+        ax.plot(xarray, yarray, marker='.', linewidth=0.5, markersize=2)
+
+    def set_ylims(self, ax, ylims):
+        ax.set_ylim(ylims)
 
     def get_xarray(self):
         interval = 0.5
@@ -60,6 +67,14 @@ class StackResidPlot:
             basetype_j = self.d_kappa[strand_id][resid_i].get_basetype_j()
             atomname_i = pair_dict[basetype_i]
             atomname_j = pair_dict[basetype_j]
+            k_array[idx] = self.d_kappa[strand_id][resid_i].get_k_by_atomnames(big_k_mat, atomname_i, atomname_j)
+        return k_array
+
+    def get_yarray_homogeneous(self, pair_dict, strand_id, big_k_mat):
+        k_array = np.zeros(len(self.resid_lst))
+        for idx, resid_i in enumerate(self.resid_lst):
+            atomname_i = pair_dict['i']
+            atomname_j = pair_dict['j']
             k_array[idx] = self.d_kappa[strand_id][resid_i].get_k_by_atomnames(big_k_mat, atomname_i, atomname_j)
         return k_array
 
@@ -95,8 +110,9 @@ class StackResidPlot:
         ax.tick_params(axis='x', labelsize=self.tickfz, length=1, pad=0.6)
 
     def set_xticks(self, d_axes):
+        xticks = list(range(4, 19))
         for strand_id in self.strand_id_lst:
-            d_axes[strand_id].set_xticks(self.resid_lst)
+            d_axes[strand_id].set_xticks(xticks)
             seq = self.d_seq[strand_id]
-            xticklabels = [seq[resid-1] for resid in self.resid_lst]
+            xticklabels = [seq[resid-1] for resid in xticks]
             d_axes[strand_id].set_xticklabels(xticklabels)

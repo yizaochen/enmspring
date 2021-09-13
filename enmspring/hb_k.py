@@ -193,7 +193,7 @@ class HBResidPlotV1(HBResidPlot):
         self.set_yaxis_right(d_axes)
         #self.set_ylims(d_axes)
         self.set_ylims_all(d_axes)
-        self.set_legend(d_axes)
+        #self.set_legend(d_axes)
         self.set_yticks(d_axes)
         self.set_xticks(d_axes)
         self.remove_xticks(d_axes)

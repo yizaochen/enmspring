@@ -5,6 +5,7 @@ enmspring/__init__.py
 enmspring/abbr.py
 enmspring/atom.py
 enmspring/atompair.py
+enmspring/backbone_k.py
 enmspring/basestack_k.py
 enmspring/eigenvector_plot.py
 enmspring/fluctpair.py
@@ -18,6 +19,7 @@ enmspring/importance_atom.py
 enmspring/k_b0_plot.py
 enmspring/k_b0_util.py
 enmspring/kappa_mat.py
+enmspring/legends.py
 enmspring/miscell.py
 enmspring/na_seq.py
 enmspring/networkx_display.py

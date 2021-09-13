@@ -24,6 +24,8 @@ class StackMeanModeAgent:
         self.host_folder = path.join(rootfolder, host)
         self.npy_folder = path.join(self.host_folder, 'mean_mode_npy')
         self.f_laplacian = self.set_f_laplacian()
+        self.f_std_laplacian = self.set_f_std_laplacian()
+        self.f_b0_mean, self.f_b0_std = self.set_f_b0_mean_std()
         self.check_folders()
 
         self.time_list = self.get_time_list()
@@ -50,6 +52,9 @@ class StackMeanModeAgent:
         self.adjacency_mat = None
         self.degree_mat = None
         self.laplacian_mat = None
+        self.laplacian_std_mat = None
+        self.b0_mean_mat = None
+        self.b0_std_mat = None
 
         self.w = None  # Eigenvalue array
         self.v = None  # Eigenvector matrix, the i-th column is the i-th eigenvector
@@ -67,6 +72,12 @@ class StackMeanModeAgent:
 
     def set_f_laplacian(self):
         return path.join(self.npy_folder, 'laplacian.npy')
+
+    def set_f_std_laplacian(self):
+        return path.join(self.npy_folder, 'laplacian.std.npy')
+
+    def set_f_b0_mean_std(self):
+        return path.join(self.npy_folder, 'b0.mean.npy'), path.join(self.npy_folder, 'b0.std.npy')
 
     def get_time_list(self):
         middle_interval = int(self.interval_time/2)
@@ -117,6 +128,41 @@ class StackMeanModeAgent:
     def load_mean_mode_laplacian_from_npy(self):
         self.laplacian_mat = np.load(self.f_laplacian)
         print(f'Load laplacian_mat from {self.f_laplacian}')
+
+    def make_mean_mode_std_laplacian(self):
+        big_mat = np.zeros((self.n_node, self.n_node, self.n_window))
+        for k in range(self.n_window):
+            time1, time2 = self.time_list[k]
+            big_mat[:,:,k] = self.d_smallagents[(time1,time2)].laplacian_mat
+        self.laplacian_std_mat = big_mat.std(2)
+
+    def save_mean_mode_std_laplacian_into_npy(self):
+        np.save(self.f_std_laplacian, self.laplacian_std_mat)
+        print(f'Save laplacian_std_mat into {self.f_std_laplacian}')
+
+    def load_mean_mode_std_laplacian_from_npy(self):
+        self.laplacian_std_mat = np.load(self.f_std_laplacian)
+        print(f'Load laplacian_std_mat from {self.f_std_laplacian}')
+
+    def make_b0_mean_std(self):
+        big_mat = np.zeros((self.n_node, self.n_node, self.n_window))
+        for k in range(self.n_window):
+            time1, time2 = self.time_list[k]
+            big_mat[:,:,k] = self.d_smallagents[(time1,time2)].b0_mat
+        self.b0_mean_mat = big_mat.mean(2)
+        self.b0_std_mat = big_mat.std(2)
+
+    def save_b0_mean_std_into_npy(self):
+        np.save(self.f_b0_mean, self.b0_mean_mat)
+        print(f'Save b0_mean_mat into {self.f_b0_mean}')
+        np.save(self.f_b0_std, self.b0_std_mat)
+        print(f'Save b0_std_mat into {self.f_b0_std}')
+
+    def load_b0_mean_std_from_npy(self):
+        self.b0_mean_mat = np.load(self.f_b0_mean)
+        print(f'Load b0_mean_mat from {self.f_b0_mean}')
+        self.b0_std_mat = np.load(self.f_b0_std)
+        print(f'Load b0_std_mat from {self.f_b0_std}')
 
     def eigen_decompose(self):
         w, v = np.linalg.eig(self.laplacian_mat)
@@ -327,6 +373,12 @@ class ProminentModes:
 class BackboneMeanModeAgent(StackMeanModeAgent):
     def set_f_laplacian(self):
         return path.join(self.npy_folder, 'laplacian_backbone.npy')
+
+    def set_f_std_laplacian(self):
+        return path.join(self.npy_folder, 'laplacian_backbone.std.npy')
+
+    def set_f_b0_mean_std(self):
+        return path.join(self.npy_folder, 'b0_backbone.mean.npy'), path.join(self.npy_folder, 'b0_backbone.std.npy')
     
     def get_all_small_agents(self):
         d_smallagents = dict()
@@ -385,6 +437,7 @@ class StackGraph(Stack):
         self.adjacency_mat = None
         self.degree_mat = None
         self.laplacian_mat = None
+        self.b0_mat = None
 
         self.w = None  # Eigenvalue array
         self.v = None  # Eigenvector matrix, the i-th column is the i-th eigenvector
@@ -421,6 +474,7 @@ class BackboneGraph(BackboneRibose):
         self.adjacency_mat = None
         self.degree_mat = None
         self.laplacian_mat = None
+        self.b0_mat = None
 
         self.w = None  # Eigenvalue array
         self.v = None  # Eigenvector matrix, the i-th column is the i-th eigenvector
