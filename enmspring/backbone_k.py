@@ -123,6 +123,10 @@ class BackboneRiboseK:
         self.df = pd.read_csv(self.f_df)
         print(f'Read DataFrame from {self.f_df}')
 
+    def get_pair_container(self, category):
+        df_sele = self.get_df_category(category)
+        return PairContainer(category, df_sele)
+
 class BackboneRiboseResid:
     hosts = ['a_tract_21mer', 'atat_21mer', 'g_tract_21mer', 'gcgc_21mer']
 
@@ -131,3 +135,214 @@ class BackboneRiboseResid:
 
     def plot_all_hosts(self):
         pass
+
+class BarPlot:
+    strand_id_lst = ['STRAND1', 'STRAND2']
+    d_diff = {'PP0': [0, 1], 'PP1': [0, 1], 'PP2': [0, 1], 'R0': [0], 'R1': [0], 'RB0': [0], 'RB1': [0], 'RB2': [0]}
+    color_lst = ['royalblue', 'orange', 'seagreen']
+    d_abbr = {'a_tract_21mer': 'A-tract', 'atat_21mer': 'TATA', 'g_tract_21mer': 'G-tract', 'gcgc_21mer': 'CpG'}
+
+    def __init__(self, host, category, df_sele, width=0.8):
+        self.host = host
+        self.category = category
+        self.df_sele = df_sele
+        self.width = width
+        self.abbr = self.d_abbr[self.host]
+
+    def bar_two_strands(self, figsize, ylims, assit_hlines):
+        fig, axes = plt.subplots(nrows=2, ncols=1, figsize=figsize, facecolor='white')
+        d_axes = self.get_d_axes(axes)
+        for strand_id in self.strand_id_lst:
+            self.bar_plot(d_axes[strand_id], strand_id)
+            if ylims is not None:
+                d_axes[strand_id].set_ylim(ylims)
+            if assit_hlines is not None:
+                for hline in assit_hlines:
+                    d_axes[strand_id].axhline(hline, color='grey', alpha=0.1)
+        return fig, d_axes
+
+    def bar_two_strands_by_d_pair_type(self, figsize, ylims, d_pair_type, assit_hlines):
+        fig, axes = plt.subplots(nrows=2, ncols=1, figsize=figsize, facecolor='white')
+        d_axes = self.get_d_axes(axes)
+        for strand_id in self.strand_id_lst:
+            self.bar_plot_by_d_pair_type(d_axes[strand_id], strand_id, d_pair_type)
+            if ylims is not None:
+                d_axes[strand_id].set_ylim(ylims)
+            if assit_hlines is not None:
+                for hline in assit_hlines:
+                    d_axes[strand_id].axhline(hline, color='grey', alpha=0.1)
+        return fig, d_axes
+
+    def bar_plot(self, ax, strand_id):
+        pair_container = self.get_pair_container_by_strandid(strand_id)
+        xticks, xticklabels = self.ini_xtick_xticklabel()
+        i = 0
+        for idx, diff in enumerate(self.d_diff[self.category]):
+            sub_xticks, sub_xticklabels, y_mean_list, y_std_list = self.get_y_mean_std_list_xticklabels(i, diff, pair_container)
+            label = f'Resid_j - Resid_i = {diff}'
+            ax.bar(sub_xticks, y_mean_list, self.width, yerr=y_std_list, color=self.color_lst[idx], label=label)
+            xticklabels += sub_xticklabels
+            xticks += sub_xticks
+            i += len(sub_xticks)
+        self.set_tick_label(ax, xticks, xticklabels, strand_id)
+
+    def bar_plot_by_d_pair_type(self, ax, strand_id, d_pair_type):
+        pair_container = self.get_pair_container_by_strandid(strand_id)
+        xticks, xticklabels = self.ini_xtick_xticklabel()
+        i = 0
+        for idx, diff in enumerate(self.d_diff[self.category]):
+            sub_xticks, sub_xticklabels, y_mean_list, y_std_list = self.get_y_mean_std_list_xticklabels_by_d_pair_type(i, diff, pair_container, d_pair_type)
+            label = f'Resid_j - Resid_i = {diff}'
+            ax.bar(sub_xticks, y_mean_list, self.width, yerr=y_std_list, color=self.color_lst[idx], label=label)
+            xticklabels += sub_xticklabels
+            xticks += sub_xticks
+            i += len(sub_xticks)
+        self.set_tick_label(ax, xticks, xticklabels, strand_id)
+
+    def ini_xtick_xticklabel(self):
+        return list(), list()
+
+    def get_pair_container_by_strandid(self, strand_id):
+        mask = self.df_sele['Strand_i'] == strand_id
+        df = self.df_sele[mask]
+        return PairContainer(self.category, df)
+
+    def set_tick_label(self, ax, xticks, xticklabels, strand_id):
+        ax.set_xticks(xticks)
+        ax.set_xticklabels(xticklabels)
+        ax.tick_params(labelsize=12)
+        ax.set_ylabel(f'{self.category} k (kcal/mol/Å$^2$)', fontsize=12)
+        ax.set_title(f'{self.abbr} {strand_id}', fontsize=12)
+        ax.legend(fontsize=8)
+
+    def get_y_mean_std_list_xticklabels(self, i, diff, pair_container):
+        d_mean_std = pair_container.get_d_mean_std()[diff]
+        xticklabels = d_mean_std.keys()
+        y_mean_list = [d_mean_std[key]['mean'] for key in xticklabels]
+        y_std_list = [d_mean_std[key]['std'] for key in xticklabels]
+        xticks = list(range(i, i+len(xticklabels)))
+        return xticks, xticklabels, y_mean_list, y_std_list
+
+    def get_y_mean_std_list_xticklabels_by_d_pair_type(self, i, diff, pair_container, d_pair_type):
+        d_mean_std = pair_container.get_d_mean_std()[diff]
+        d_mean_std = self.filter_d_mean_std_by_d_pair_type(d_mean_std, d_pair_type[diff])
+        xticklabels = d_mean_std.keys()
+        y_mean_list = [d_mean_std[key]['mean'] for key in xticklabels]
+        y_std_list = [d_mean_std[key]['std'] for key in xticklabels]
+        xticks = list(range(i, i+len(xticklabels)))
+        return xticks, xticklabels, y_mean_list, y_std_list
+
+    def filter_d_mean_std_by_d_pair_type(self, d_mean_std, pair_type):
+        d_mean_std_new = dict()
+        for key in d_mean_std.keys():
+            if key in pair_type:
+                d_mean_std_new[key] = d_mean_std[key]
+        return d_mean_std_new
+
+    def get_d_axes(self, axes):
+        d_axes = dict()
+        for idx, strand_id in enumerate(self.strand_id_lst):
+            d_axes[strand_id] = axes[idx]
+        return d_axes
+class Pair:
+    def __init__(self, atomname_i, atomname_j, resid_i, resid_j, k_mean, k_std):
+        diff = resid_j - resid_i # Let diff always >= 0
+        if diff < 0:
+            self.atomname_i = atomname_j
+            self.atomname_j = atomname_i
+            self.resid_i = resid_j
+            self.resid_j = resid_i
+        else:
+            self.atomname_i = atomname_i
+            self.atomname_j = atomname_j
+            self.resid_i = resid_i
+            self.resid_j = resid_j
+
+        self.diff = self.resid_j - self.resid_i
+        self.k_mean = k_mean
+        self.k_std = k_std
+
+    def __eq__(self, other):
+        if self.diff == other.diff:
+            if ((self.atomname_i == other.atomname_i) and (self.atomname_j == other.atomname_j)) or ((self.atomname_i == other.atomname_j) and (self.atomname_j == other.atomname_i)):
+                return True
+            else:
+                return False
+        else:
+            return False
+
+    def __repr__(self):
+        return f'Diff:{self.diff} Pair:{self.atomname_i} - {self.atomname_j}'
+
+class PairContainer:
+    def __init__(self, category, df):
+        self.category = category
+        self.df = df
+        self.lst = self.get_lst_by_df()
+        self.n_pairs = len(self.lst)
+        self.pair_type_lst = self.get_pair_type_lst()
+        self.diff_lst = self.get_diff_lst()
+        self.d_pair_type = self.get_d_pair_type()
+
+    def get_lst_by_df(self):
+        result_lst = list()
+        for atomname_i, atomname_j, resid_i, resid_j, k_mean, k_std in zip(self.df['Atomname_i'], self.df['Atomname_j'], self.df['Resid_i'], self.df['Resid_j'], self.df['k-mean'], self.df['k-std']):
+            if (resid_i < 4) or (resid_i > 18) or (resid_j < 4) or (resid_j > 18):
+                continue
+            result_lst.append(Pair(atomname_i, atomname_j, resid_i, resid_j, k_mean, k_std))
+        return result_lst
+
+    def get_pair_type_lst(self):
+        pair_type_lst = list()
+        for pair in self.lst:
+            if pair not in pair_type_lst:
+                pair_type_lst.append(pair)
+        return pair_type_lst
+
+    def get_diff_lst(self):
+        diff_lst = [pair.diff for pair in self.lst]
+        return list(set(diff_lst))
+
+    def get_d_pair_type(self):
+        d_pair_type = {diff: list() for diff in self.diff_lst}
+        for pair in self.pair_type_lst:
+            d_pair_type[pair.diff].append(pair)
+        return d_pair_type
+
+    def get_d_pair_type_keys(self):
+        d_keys = {diff: list() for diff in self.diff_lst}
+        for diff in self.diff_lst:
+            pair_type_lst = self.d_pair_type[diff]
+            for pair in pair_type_lst:
+                key = f'{pair.atomname_i}-{pair.atomname_j}'
+                d_keys[diff].append(key)
+        return d_keys
+
+    def get_d_mean_std(self):
+        d_mean_std = {diff: dict() for diff in self.diff_lst}
+        for diff in self.diff_lst:
+            pair_type_lst = self.d_pair_type[diff]
+            for pair in pair_type_lst:
+                key1 = f'{pair.atomname_i}-{pair.atomname_j}'
+                d_mean_std[diff][key1] = dict()
+                mean, std = self.get_mean_std_by_pair(pair)
+                d_mean_std[diff][key1]['mean'] = mean
+                d_mean_std[diff][key1]['std'] = std
+        return d_mean_std
+
+    def get_mean_std_by_pair(self, pair_sele):
+        k_list = list()
+        for pair in self.lst:
+            if pair == pair_sele:
+                k_list.append(pair.k_mean)
+        k_array = np.array(k_list)
+        if k_array.shape[0] == 0:
+            return 0., 0.
+        else:
+            return k_array.mean(), k_array.std()
+
+    def __repr__(self):
+        return f'{self.category} Number of Pairs: {self.n_pairs}'
+
+
+    

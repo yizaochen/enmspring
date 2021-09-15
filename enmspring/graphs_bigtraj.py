@@ -34,6 +34,7 @@ class StackMeanModeAgent:
 
         self.node_list = None
         self.d_idx = None
+        self.d_idx_inverse = None
         self.n_node = None
 
         self.map = None
@@ -105,6 +106,7 @@ class StackMeanModeAgent:
         self.d_smallagents[(time1,time2)].pre_process()
         self.node_list = self.d_smallagents[(time1,time2)].node_list
         self.d_idx = self.d_smallagents[(time1,time2)].d_idx
+        self.d_idx_inverse = {y:x for x,y in self.d_idx.items()}
         self.n_node = self.d_smallagents[(time1,time2)].n_node
 
     def set_degree_adjacency_from_laplacian(self):
@@ -210,6 +212,10 @@ class StackMeanModeAgent:
         else:
             return 'STRAND2'
 
+    def get_eigv_id_by_strandid_modeid(self, strand_id, mode_id):
+        d_temp = {'STRAND1': self.strand1_array, 'STRAND2': self.strand2_array}
+        return d_temp[strand_id][mode_id-1]
+
     def get_lambda_by_strand(self, strandid):
         if strandid == 'STRAND1':
             return [self.get_eigenvalue_by_id(eigv_id) for eigv_id in self.strand1_array]
@@ -259,9 +265,9 @@ class StackMeanModeAgent:
             resid_prev = resid    
         return vlines
 
-    def plot_sele_eigenvector(self, figsize, sele_id):
+    def plot_sele_eigenvector(self, figsize, strand_id, mode_id, show_xticklabel=False):
         fig, ax = plt.subplots(figsize=figsize)
-        strand_id = self.decide_eigenvector_strand_by_strand_array(sele_id)
+        sele_id = self.get_eigv_id_by_strandid_modeid(strand_id, mode_id)
         idx_list = self.d_idx_list_by_strand[strand_id]
         node_list= self.d_node_list_by_strand[strand_id]
 
@@ -269,14 +275,21 @@ class StackMeanModeAgent:
         y = y[idx_list]
         x = range(len(y))
         vlines = self.get_vlines_by_resid_list(node_list)
-
-        xticklabels = [self.atomname_map[node_id] for node_id in node_list]
         ax.plot(x, y)
+
         for vline in vlines:
             ax.axvline(vline, color="grey", alpha=0.2)
-        ax.set_xticks(x)
-        ax.set_xticklabels(xticklabels)
+
+        if show_xticklabel:
+            xticklabels = [self.atomname_map[node_id] for node_id in node_list]
+            ax.set_xticks(x)
+            ax.set_xticklabels(xticklabels)
+        else:
+            ax.set_xticks(x[::50])
         ax.set_xlim(x[0]-1, x[-1]+1)
+        ax.set_xlabel('Atom index', fontsize=14)
+        ax.set_ylabel(r'$\mathbf{e}_{' + f'{mode_id}' + r'}$', fontsize=14)
+        ax.set_title(f'{self.host}-{strand_id}', fontsize=16)
         return fig, ax
 
     def get_A_by_atomname1_atomname2(self, atomname_i, atomname_j, sele_strandid):

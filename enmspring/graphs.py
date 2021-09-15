@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 from enmspring import pairtype
 from enmspring.spring import Spring
-from enmspring.k_b0_util import get_df_by_filter_st, get_df_by_filter_PP, get_df_by_filter_R, get_df_by_filter_RB
+from enmspring.k_b0_util import get_df_by_filter_st, get_df_by_filter_PP, get_df_by_filter_R, get_df_by_filter_RB, get_df_by_filter_PB
 from enmspring.hb_util import HBAgent
 from enmspring.na_seq import sequences
 from enmspring.networkx_display import THY_Base, CYT_Base, ADE_Base, GUA_Base, THY_Right_Base, CYT_Right_Base, ADE_Right_Base, GUA_Right_Base
@@ -623,13 +623,20 @@ class BackboneRibose(GraphAgent):
         print(f"Thare are {self.n_node} nodes.")
 
     def get_df_backbone_ribose(self):
-        df_pp_lst = [get_df_by_filter_PP(self.df_all_k, subcategory) for subcategory in ['PP0', 'PP1', 'PP2']]
+        df_pp_lst = [get_df_by_filter_PP(self.df_all_k, subcategory) for subcategory in ['PP0', 'PP1', 'PP2', 'PP3']]
         df_r_lst = [get_df_by_filter_R(self.df_all_k, subcategory) for subcategory in ['R0', 'R1']]
-        df_rb_lst = [get_df_by_filter_RB(self.df_all_k, subcategory) for subcategory in ['RB0', 'RB1', 'RB2']]
-        df_pp_r_rb = pd.concat(df_pp_lst+df_r_lst+df_rb_lst)
+        df_rb_lst = [get_df_by_filter_RB(self.df_all_k, subcategory) for subcategory in ['RB0', 'RB1', 'RB2', 'RB3']]
+        df_pb_lst = [get_df_by_filter_PB(self.df_all_k, subcategory) for subcategory in ['PB']]
+        df_pp_r_rb = pd.concat(df_pp_lst+df_r_lst+df_rb_lst+df_pb_lst)
         criteria = 1e-1
         mask = (df_pp_r_rb['k'] > criteria)
         return df_pp_r_rb[mask]
+
+    def build_adjacency_from_pp_r(self):
+        df_sele = self.get_df_backbone_ribose()
+        self.set_adjacency_by_df(df_sele)
+        self.make_adjacency_symmetry()
+        self.set_b0_mat_by_df(df_sele)
 
     def get_sele_A_by_idx(self, atomid_i, atomid_j):
         sele_A = np.zeros((self.n_node, self.n_node))
@@ -653,14 +660,6 @@ class BackboneRibose(GraphAgent):
         df_result = pd.DataFrame(d_qTAq)
         columns_qTAq.append('qTAq')
         return df_result[columns_qTAq]
-
-    def build_adjacency_from_pp_r(self):
-        #for subcategory in ['PP0', 'PP1', 'PP2', 'PP3']:
-        #    df_sele = get_df_by_filter_PP(self.df_all_k, subcategory)
-        df_sele = self.get_df_backbone_ribose()
-        self.set_adjacency_by_df(df_sele)
-        self.make_adjacency_symmetry()
-        self.set_b0_mat_by_df(df_sele)
 
     def set_benchmark_array(self):
         idx_start_strand2 = self.d_idx['B1']
