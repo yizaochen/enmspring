@@ -20,6 +20,7 @@ enmspring/importance_atom.py
 enmspring/k_b0_plot.py
 enmspring/k_b0_util.py
 enmspring/kappa_mat.py
+enmspring/kappa_mat_backbone.py
 enmspring/legends.py
 enmspring/miscell.py
 enmspring/na_seq.py
@@ -29,6 +30,7 @@ enmspring/prominent_plot.py
 enmspring/spring.py
 enmspring/stack_util.py
 enmspring/vmddraw.py
+enmspring/vmddraw_backbone.py
 enmspring/vmddraw_meangraph.py
 enmspring/vmddraw_tribasesteps.py
 enmspring.egg-info/PKG-INFO

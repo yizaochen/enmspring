@@ -91,6 +91,8 @@ class ThreeBaseSteps:
                      'T': ['N3', 'H3'],
                      'G': ['N1', 'H1', 'N2', 'H21', 'H22'],
                      'C': ['N4', 'H42', 'H41']}
+    backbone_atomlist = ['P', 'O1P', 'O2P', "O5'", "C5'"]
+    ribose_atomlist = ["C4'", "O4'", "C1'", "C2'", "C3'", "O3'"]
 
     def __init__(self, host, resid_i, pdb):
         self.host = host
@@ -125,6 +127,12 @@ class ThreeBaseSteps:
             d_resname_map[resid_j_symbol] = seq_lst[resid_j - 1]
         return d_resname_map
 
+    def get_single_nucleotide_selection(self, i_or_j):
+        txt_list = list()
+        for resid_symbol in self.d_resid_lst[i_or_j]:
+            txt_list += self.get_nucleotide_selection(resid_symbol)
+        return txt_list
+
     def get_tri_baseatoms_selection(self, i_or_j):
         txt_list = list()
         for resid_symbol in self.d_resid_lst[i_or_j]:
@@ -134,6 +142,16 @@ class ThreeBaseSteps:
     def get_baseatoms_selection(self, resid_symbol):
         resname = self.d_resname_map[resid_symbol]
         atom_lst = self.d_atomlist[resname]
+        atom_text = ' '.join(atom_lst)
+        resid = self.d_resid_map[resid_symbol]
+        selection = f'mol selection (resid {resid}) and (name {atom_text})'
+        txt_list = ['mol color Name', 'mol representation VDW 0.200000 12.000000',
+                     selection, 'mol material AOChalky', 'mol addrep 0']
+        return txt_list
+
+    def get_nucleotide_selection(self, resid_symbol):
+        resname = self.d_resname_map[resid_symbol]
+        atom_lst = self.d_atomlist[resname] + self.backbone_atomlist + self.ribose_atomlist
         atom_text = ' '.join(atom_lst)
         resid = self.d_resid_map[resid_symbol]
         selection = f'mol selection (resid {resid}) and (name {atom_text})'
@@ -181,6 +199,16 @@ class ThreeBaseSteps:
             res_pair_lst = [('i', 'i-1'), ('i', 'i+1')]
         else:
             res_pair_lst = [('j', 'j-1'), ('j', 'j+1')]
+        txt_lst = []
+        for res_pair in res_pair_lst:
+            txt_lst += self.get_highlight_springs_tcl_txt_by_resid_symbols(d_springs, res_pair, radius, colorname)
+        return txt_lst
+
+    def get_highlight_springs_tcl_txt_backbone(self, i_or_j, d_springs, radius, colorname):
+        if i_or_j == 'i':
+            res_pair_lst = [('i', 'i')]
+        else:
+            res_pair_lst = [('j', 'j')]
         txt_lst = []
         for res_pair in res_pair_lst:
             txt_lst += self.get_highlight_springs_tcl_txt_by_resid_symbols(d_springs, res_pair, radius, colorname)

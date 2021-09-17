@@ -309,6 +309,21 @@ class StackMeanModeAgent:
     def get_key_by_atomname_resid_strandid(self, atomname, resid, strandid):
         return f'segid {strandid} and resid {resid} and name {atomname}'
 
+    def get_map_idx_from_strand_resid_atomname(self):
+        d_result = dict()
+        for node_name in self.node_list:
+            idx = self.d_idx[node_name]
+            strand_id = self.strandid_map[node_name]
+            resid = self.resid_map[node_name]
+            atomname = self.atomname_map[node_name]
+            d_result[(strand_id, resid, atomname)] = idx
+        return d_result
+
+    def get_last_mode_by_strand_id(self, strand_id):
+        if strand_id == 'STRAND1':
+            return len(self.strand1_array)
+        else:
+            return len(self.strand2_array)
 class ProminentModes:
     def __init__(self, host, rootfolder, interval_time):
         self.host = host

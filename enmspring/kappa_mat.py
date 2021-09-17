@@ -25,6 +25,20 @@ class KMat:
             K_mat += np.dot(self.eigvector_mat, np.dot(lambda_mat, self.eigvector_mat.transpose()))
         return K_mat
 
+    def get_K_mat_by_strandid_modelist(self, strand_id, mode_list):
+        K_mat = np.zeros((self.n_node, self.n_node))
+        eigv_id_list = [self.s_agent.get_eigv_id_by_strandid_modeid(strand_id, mode_id) for mode_id in mode_list]
+        for eigv_id in eigv_id_list:
+            lambda_mat = np.zeros((self.n_node, self.n_node))
+            lambda_mat[eigv_id-1, eigv_id-1] = self.s_agent.get_eigenvalue_by_id(eigv_id)
+            K_mat += np.dot(self.eigvector_mat, np.dot(lambda_mat, self.eigvector_mat.transpose()))
+        return K_mat
+
+    def set_diagonal_zero(self, k_mat):
+        for idx in range(self.n_node):
+            k_mat[idx, idx] = 0.
+        return k_mat
+
     def pre_process(self):
         self.s_agent.load_mean_mode_laplacian_from_npy()
         self.s_agent.eigen_decompose()
@@ -38,7 +52,6 @@ class Kappa:
                   'T': ['N1', 'C2', 'N3', 'C4', 'C5', 'C7', 'C6', 'O2', 'O4'],
                   'C': ['N1', 'C2', 'N3', 'C4', 'N4', 'C5', 'C6', 'O2'],
                   'G': ['N9', 'C8', 'N7', 'C5', 'C4', 'N3', 'C2', 'N1', 'C6', 'O6', 'N2']}
-    lbfz = 12
 
     def __init__(self, host, strand_id, resid_i, s_agent, d_map, seq):
         self.host = host
@@ -54,11 +67,11 @@ class Kappa:
         self.n_atom_i = len(self.atomlst_i)
         self.n_atom_j = len(self.atomlst_j)
 
-    def heatmap(self, ax, big_k_mat, norm):
+    def heatmap(self, ax, big_k_mat, norm, lbfz=8, tickfz=6):
         data_mat = self.get_data_mat(big_k_mat)
         im = ax.imshow(data_mat, cmap=CMAP, norm=norm)
-        self.set_xticks_yticks(ax)
-        self.set_xlabel_ylabel(ax)
+        self.set_xticks_yticks(ax, tickfz)
+        self.set_xlabel_ylabel(ax, lbfz)
         return im
 
     def get_k_by_atomnames(self, big_k_mat, atomname_i, atomname_j):
@@ -79,16 +92,17 @@ class Kappa:
         key = (self.strand_id, resid, atomname)
         return self.map_idx_from_strand_resid_atomname[key]
 
-    def set_xticks_yticks(self, ax):
+    def set_xticks_yticks(self, ax, tickfz):
         ax.set_xticks(range(self.n_atom_i))
         ax.set_yticks(range(self.n_atom_j))
         ax.set_xticklabels(self.atomlst_i)
         ax.set_yticklabels(self.atomlst_j)
         ax.xaxis.tick_top()
+        ax.tick_params(axis='both', labelsize=tickfz)
     
-    def set_xlabel_ylabel(self, ax):
-        ax.set_xlabel(f'Resid {self.resid_i}', fontsize=self.lbfz)
-        ax.set_ylabel(f'Resid {self.resid_j}', fontsize=self.lbfz)
+    def set_xlabel_ylabel(self, ax, lbfz):
+        ax.set_xlabel(f'Resid {self.resid_i}', fontsize=lbfz)
+        ax.set_ylabel(f'Resid {self.resid_j}', fontsize=lbfz)
         ax.xaxis.set_label_position('top')
 
     def get_basetype_by_resid(self, resid):
@@ -122,20 +136,20 @@ class KappaUpperDown(Kappa):
         self.n_atom_j = len(self.atomlst_j)
         self.n_atom_k = len(self.atomlst_k)
 
-    def heatmap_j(self, ax, big_k_mat, norm):
+    def heatmap_j(self, ax, big_k_mat, norm, lbfz=12):
         data_mat = self.get_data_mat_j(big_k_mat)
         im = ax.imshow(data_mat, cmap=CMAP, norm=norm)
         self.set_xticks_yticks_j(ax)
-        self.set_xlabel_ylabel_j(ax)
+        self.set_xlabel_ylabel_j(ax, lbfz)
         #ax.xaxis.tick_top()
         #ax.xaxis.set_label_position('top')
         return im
 
-    def heatmap_k(self, ax, big_k_mat, norm):
+    def heatmap_k(self, ax, big_k_mat, norm, lbfz=12):
         data_mat = self.get_data_mat_k(big_k_mat)
         im = ax.imshow(data_mat, cmap=CMAP, norm=norm)
         self.set_xticks_yticks_k(ax)
-        self.set_xlabel_ylabel_k(ax)
+        self.set_xlabel_ylabel_k(ax, lbfz)
         return im
 
     def get_data_mat_j(self, big_k_mat):
@@ -169,13 +183,13 @@ class KappaUpperDown(Kappa):
         ax.set_xticklabels(self.atomlst_k)
         ax.set_yticklabels(self.atomlst_k)
     
-    def set_xlabel_ylabel_j(self, ax):
-        ax.set_xlabel(f'Resid {self.resid_i}', fontsize=self.lbfz)
-        ax.set_ylabel(f'Resid {self.resid_j}', fontsize=self.lbfz)
+    def set_xlabel_ylabel_j(self, ax, lbfz):
+        ax.set_xlabel(f'Resid {self.resid_i}', fontsize=lbfz)
+        ax.set_ylabel(f'Resid {self.resid_j}', fontsize=lbfz)
 
-    def set_xlabel_ylabel_k(self, ax):
+    def set_xlabel_ylabel_k(self, ax, lbfz):
         #ax.set_xlabel(f'Resid {self.resid_i}', fontsize=self.lbfz)
-        ax.set_ylabel(f'Resid {self.resid_k}', fontsize=self.lbfz)
+        ax.set_ylabel(f'Resid {self.resid_k}', fontsize=lbfz)
 
     def get_atomlst(self):
         basetype_i = self.get_basetype_by_resid(self.resid_i)

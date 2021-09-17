@@ -82,11 +82,20 @@ def get_df_by_filter_PP(df0, category):
         mask = df1['b0'] > PP23_b0
     return df1[mask]
 
+def get_df_by_filter_PP2_angles(df0):
+    mask = (df0['Atomname_i'] == 'P') & (df0['Atomname_j'] == "C5'")
+    df1 = df0[~mask]
+    mask = (df1['Atomname_i'] == "C5'") & (df1['Atomname_j'] == 'P')
+    df2 = df1[~mask]
+    mask = (df2['Atomname_i'] == "C3'") & (df2['Atomname_j'] == 'P')
+    df3 = df2[~mask]
+    mask = (df3['Atomname_i'] == 'P') & (df3['Atomname_j'] == "C3'")
+    return df3[~mask]
 
 def get_df_by_filter_st(df0, category):
     if category == 'st':
         mask = (df0['PairType'] == 'STACK-1')
-    return df0[mask] 
+    return df0[mask]
 
 
 def get_df_by_filter_PB(df0, category):

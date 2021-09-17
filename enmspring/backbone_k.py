@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from enmspring.graphs_bigtraj import BackboneMeanModeAgent
 from enmspring import pairtype
 from enmspring.k_b0_util import get_df_by_filter_PP, get_df_by_filter_R, get_df_by_filter_RB
+from enmspring.basestack_k import StackResidPlot
+from enmspring.kappa_mat_backbone import KappaBackbone, KappaBackboneWithNext
 
 class BackboneRiboseK:
     interval_time = 500
@@ -127,14 +129,75 @@ class BackboneRiboseK:
         df_sele = self.get_df_category(category)
         return PairContainer(category, df_sele)
 
-class BackboneRiboseResid:
-    hosts = ['a_tract_21mer', 'atat_21mer', 'g_tract_21mer', 'gcgc_21mer']
+class BackboneResidPlot(StackResidPlot):
+    resid_lst = list(range(4, 19))
+    tickfz = 8
+    lbfz = 12
 
-    def __init__(self):
-        pass
+    def plot_two_strands(self, figsize, start_mode, end_mode, ylims, d_pair, yticks=None, assist_hlines=None):
+        big_k_mat = self.kmat_agent.get_K_mat(start_mode, end_mode)
+        fig, axes = plt.subplots(nrows=2, ncols=1, figsize=figsize, facecolor='white')
+        d_axes = self.get_d_axes(axes)
+        for strand_id in self.strand_id_lst:
+            self.plot_lines(d_axes[strand_id], strand_id, big_k_mat, d_pair)
+            self.set_xticks(d_axes)
+            self.set_ylabel_xlabel(d_axes[strand_id])
+            self.set_ylims(d_axes[strand_id], ylims)
+            if yticks is not None:
+                d_axes[strand_id].set_yticks(yticks)
+            if assist_hlines is not None:
+                for hline in assist_hlines:
+                    d_axes[strand_id].axhline(hline, color='grey', alpha=0.2)
+        return fig, d_axes
 
-    def plot_all_hosts(self):
-        pass
+    def plot_lines(self, ax, strand_id, big_k_mat, d_pair):
+        xarray = self.get_xarray()
+        yarray = self.get_yarray(strand_id, big_k_mat, d_pair)
+        #ax.plot(xarray, yarray, marker='.', linewidth=0.5, markersize=2)
+        ax.plot(xarray, yarray, marker='o')
+    
+    def get_yarray(self, strand_id, big_k_mat, d_pair):
+        k_array = np.zeros(len(self.resid_lst))
+        for idx, resid_i in enumerate(self.resid_lst):
+            basetype_i = self.d_kappa[strand_id][resid_i].get_basetype_i()
+            basetype_j = self.d_kappa[strand_id][resid_i].get_basetype_j()
+            atomname_i = d_pair[basetype_i]['atomname_i']
+            atomname_j = d_pair[basetype_j]['atomname_j']
+            k_array[idx] = self.d_kappa[strand_id][resid_i].get_k_by_atomnames(big_k_mat, atomname_i, atomname_j)
+        return k_array
+
+    def get_xarray(self):
+        return self.resid_lst
+
+    def get_d_kappa(self):
+        d_kappa = dict()
+        for strand_id in self.strand_id_lst:
+            d_kappa[strand_id] = dict()
+            seq = self.d_seq[strand_id]
+            for resid_i in self.resid_lst:
+                d_kappa[strand_id][resid_i] = KappaBackbone(self.host, strand_id, resid_i, self.s_agent, self.map_idx_from_strand_resid_atomname, seq)
+        return d_kappa
+
+    def set_ylabel_xlabel(self, ax):
+        ax.set_ylabel('k (kcal/mol/Å$^2$)', fontsize=self.lbfz)
+        #ax.set_xlabel('Resid', fontsize=self.lbfz)
+        ax.tick_params(axis='both', labelsize=self.tickfz)
+
+class BackboneResidPlotWithNext(BackboneResidPlot):
+    resid_lst = list(range(4, 18))
+    
+    def get_d_kappa(self):
+        d_kappa = dict()
+        for strand_id in self.strand_id_lst:
+            d_kappa[strand_id] = dict()
+            seq = self.d_seq[strand_id]
+            for resid_i in self.resid_lst:
+                d_kappa[strand_id][resid_i] = KappaBackboneWithNext(self.host, strand_id, resid_i, self.s_agent, self.map_idx_from_strand_resid_atomname, seq)
+        return d_kappa
+
+    def get_xarray(self):
+        interval = 0.5
+        return np.arange(4+interval, 18, 1)
 
 class BarPlot:
     strand_id_lst = ['STRAND1', 'STRAND2']
