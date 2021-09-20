@@ -214,6 +214,16 @@ class ThreeBaseSteps:
             txt_lst += self.get_highlight_springs_tcl_txt_by_resid_symbols(d_springs, res_pair, radius, colorname)
         return txt_lst
 
+    def get_highlight_springs_tcl_txt_backbone_with_next(self, i_or_j, d_springs, radius, colorname):
+        if i_or_j == 'i':
+            res_pair_lst = [('i', 'i+1')]
+        else:
+            res_pair_lst = [('j', 'j+1')]
+        txt_lst = []
+        for res_pair in res_pair_lst:
+            txt_lst += self.get_highlight_springs_tcl_txt_by_resid_symbols(d_springs, res_pair, radius, colorname)
+        return txt_lst
+
     def get_highlight_springs_tcl_txt_by_resid_symbols(self, d_springs, res_pair, radius, colorname):
         txt_lst = []
         pair_lst = d_springs[self.host][res_pair]

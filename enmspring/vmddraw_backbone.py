@@ -15,3 +15,9 @@ class TriBaseStepsBackboneVMD(TriBaseStepsVMD):
         tcl_lst = self.tri_agent.get_highlight_springs_tcl_txt_backbone(i_or_j, d_springs, radius, colorname)
         f_tcl_out = path.join(self.tcl_folder, f'highlight_springs_{i_or_j}.tcl')
         self.write_tcl_out(f_tcl_out, tcl_lst)
+
+    def highlight_springs_with_next(self, i_or_j, d_springs, radius, colorname):
+        #i_or_j: 'i', 'j'
+        tcl_lst = self.tri_agent.get_highlight_springs_tcl_txt_backbone_with_next(i_or_j, d_springs, radius, colorname)
+        f_tcl_out = path.join(self.tcl_folder, f'highlight_springs_{i_or_j}.tcl')
+        self.write_tcl_out(f_tcl_out, tcl_lst)

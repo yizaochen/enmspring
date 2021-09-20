@@ -25,11 +25,14 @@ class KappaBackbone(Kappa):
         self.seq = seq
 
         self.resid_i = resid_i
-        self.resid_j = resid_i
+        self.resid_j = self.set_resid_j()
 
         self.atomlst_i, self.atomlst_j = self.get_atomlst()
         self.n_atom_i = len(self.atomlst_i)
         self.n_atom_j = len(self.atomlst_j)
+
+    def set_resid_j(self):
+        return self.resid_i
 
     def get_data_mat_j(self, big_k_mat):
         data_mat = np.zeros((self.n_atom_j, self.n_atom_i))
@@ -41,19 +44,8 @@ class KappaBackbone(Kappa):
         return data_mat
 
 class KappaBackboneWithNext(KappaBackbone):
-    def __init__(self, host, strand_id, resid_i, s_agent, d_map, seq):
-        self.host = host
-        self.strand_id = strand_id
-        self.s_agent = s_agent
-        self.map_idx_from_strand_resid_atomname = d_map
-        self.seq = seq
-
-        self.resid_i = resid_i
-        self.resid_j = resid_i + 1
-
-        self.atomlst_i, self.atomlst_j = self.get_atomlst()
-        self.n_atom_i = len(self.atomlst_i)
-        self.n_atom_j = len(self.atomlst_j)
+    def set_resid_j(self):
+        return self.resid_i + 1
 
 class KappaStrandBackbone(KappaStrand):
 
@@ -129,6 +121,24 @@ class MeanKappaStrandBackbone(MeanKappaStrand):
         atomlst_j = KappaBackbone.d_atomlist[basetype_j]
         return atomlst_i, atomlst_j
 
+class MeanKappaStrandBackboneWithNext(MeanKappaStrandBackbone):
+    def get_d_kappa(self):
+        d_kappa = dict()
+        for resid in self.resid_lst:
+            d_kappa[resid] = KappaBackboneWithNext(self.host, self.strand_id, resid, self.s_agent, self.map_idx_from_strand_resid_atomname, self.seq)
+        return d_kappa
+
+    def plot_mean_heatmap_single(self, figsize, start_mode, end_mode, vmin, vmax, dot_criteria):
+        fig, ax = plt.subplots(figsize=figsize, facecolor='white')
+        norm = Normalize(vmin=vmin, vmax=vmax)
+        K_mat = self.kmat_agent.get_K_mat(start_mode, end_mode)
+        mean_data_mat_j = self.get_mean_data_mat_j(K_mat)
+        im_j = self.heatmap_single(ax, mean_data_mat_j, norm)
+        self.scatter_center_over_criteria(ax, mean_data_mat_j, dot_criteria)
+        self.set_yticks_yticklabels_single(ax)
+        self.set_xticks_xticklabels_single(ax)
+        return fig, im_j, ax
+
 
 class MeanKappaStrandHetreoBackbone(MeanKappaStrandBackbone):
     strand_id_lst = ['STRAND1', 'STRAND2']
@@ -155,13 +165,16 @@ class MeanKappaStrandHetreoBackbone(MeanKappaStrandBackbone):
 
         self.d_seq = {'STRAND1': sequences[host]['guide'], 'STRAND2': sequences[host]['target']}
 
-        self.basetype_j = basetype_i
+        self.basetype_j = self.set_basetype_j()
 
         self.d_kappa = self.get_d_kappa()
 
         self.atomlst_i, self.atomlst_j = self.get_atomlst()
         self.n_atom_i = len(self.atomlst_i)
         self.n_atom_j = len(self.atomlst_j)
+
+    def set_basetype_j(self):
+        return self.basetype_i
 
     def get_atomlst(self):
         atomlst_i = KappaBackbone.d_atomlist[self.basetype_i]
@@ -199,3 +212,30 @@ class MeanKappaStrandHetreoBackbone(MeanKappaStrandBackbone):
                 temp_array[idx] = d_data_mat[strand_id][resid][row_id, col_id]
                 idx += 1
         return temp_array.mean()
+
+class MeanKappaStrandHetreoBackboneWithNext(MeanKappaStrandHetreoBackbone):
+    d_basetype_j = {'atat_21mer': {'A': 'T', 'T': 'A'},
+                    'gcgc_21mer': {'G': 'C', 'C': 'G'}}
+
+    def set_basetype_j(self):
+        return self.d_basetype_j[self.host][self.basetype_i]
+
+    def plot_mean_heatmap_single(self, figsize, start_mode, end_mode, vmin, vmax, dot_criteria):
+        fig, ax = plt.subplots(figsize=figsize, facecolor='white')
+        norm = Normalize(vmin=vmin, vmax=vmax)
+        K_mat = self.kmat_agent.get_K_mat(start_mode, end_mode)
+        mean_data_mat_j = self.get_mean_data_mat_j(K_mat)
+        im_j = self.heatmap_single(ax, mean_data_mat_j, norm)
+        self.scatter_center_over_criteria(ax, mean_data_mat_j, dot_criteria)
+        self.set_yticks_yticklabels_single(ax)
+        self.set_xticks_xticklabels_single(ax)
+        return fig, im_j, ax
+
+    def get_d_kappa(self):
+        d_kappa = {strand_id: dict() for strand_id in self.strand_id_lst}
+        for strand_id in self.strand_id_lst:
+            resid_lst = self.d_resid_lst[self.host][self.basetype_i][strand_id]
+            seq = self.d_seq[strand_id]
+            for resid in resid_lst:
+                d_kappa[strand_id][resid] = KappaBackboneWithNext(self.host, strand_id, resid, self.s_agent, self.map_idx_from_strand_resid_atomname, seq)
+        return d_kappa
