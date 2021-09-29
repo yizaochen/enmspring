@@ -13,8 +13,8 @@ class StackResidPlot:
                 'gcgc_21mer': {'STRAND1': {'G': 'C4', 'C': 'C4'}, 'STRAND2': {'G': 'C4', 'C': 'C4'}},
                 'g_tract_21mer': {'STRAND1': {'i': 'N1', 'j': 'C6'}, 'STRAND2': {'i': 'N3', 'j': 'C4'}}
                 }
+    d_colors = {'STRAND1': 'blue', 'STRAND2': 'red'}
     
-
     tickfz = 4
     lbfz = 6
 
@@ -35,26 +35,43 @@ class StackResidPlot:
 
     def plot_two_strands(self, figsize, start_mode, end_mode, ylims):
         big_k_mat = self.kmat_agent.get_K_mat(start_mode, end_mode)
-        fig, axes = plt.subplots(nrows=2, ncols=1, figsize=figsize, facecolor='white')
-        d_axes = self.get_d_axes(axes)
-        for strand_id in self.strand_id_lst:
-            self.plot_lines(d_axes[strand_id], strand_id, big_k_mat)
-            self.set_xticks(d_axes)
-            self.set_ylabel_xlabel(d_axes[strand_id])
-            self.set_ylims(d_axes[strand_id], ylims)
-        return fig, d_axes
+        fig, ax1 = plt.subplots(nrows=1, ncols=1, figsize=figsize, facecolor='white')
+        ax2 = ax1.twiny()
 
-    def plot_lines(self, ax, strand_id, big_k_mat):
+        self.set_xticks(ax1, ax2)
+        self.plot_strand1(ax2, big_k_mat)
+        self.plot_strand2(ax1, big_k_mat)
+        self.set_ylims(ax1, ax2, ylims)
+        self.set_ylabel_xlabel(ax1, ax2)
+        return fig, ax1, ax2
+
+    def plot_strand1(self, ax, big_k_mat):
+        strand_id = 'STRAND1'
         pair_dict = self.all_pair[self.host][strand_id]
         xarray = self.get_xarray()
         if self.host in ['atat_21mer', 'gcgc_21mer']:
             yarray = self.get_yarray(pair_dict, strand_id, big_k_mat)
         else:
             yarray = self.get_yarray_homogeneous(pair_dict, strand_id, big_k_mat)
-        ax.plot(xarray, yarray, marker='.', linewidth=0.5, markersize=2)
+        ax.plot(xarray, yarray, marker='.', linewidth=0.5, markersize=2, color=self.d_colors[strand_id])
 
-    def set_ylims(self, ax, ylims):
-        ax.set_ylim(ylims)
+    def plot_strand2(self, ax, big_k_mat):
+        strand_id = 'STRAND2'
+        pair_dict = self.all_pair[self.host][strand_id]
+        xarray = self.get_xarray()
+        if self.host in ['atat_21mer', 'gcgc_21mer']:
+            yarray = self.get_yarray(pair_dict, strand_id, big_k_mat)
+        else:
+            yarray = self.get_yarray_homogeneous(pair_dict, strand_id, big_k_mat)
+        ax.plot(xarray, yarray, marker='x', linewidth=0.5, markersize=2, color=self.d_colors[strand_id])
+        ax.invert_xaxis()
+
+    def set_ylims(self, ax1, ax2, ylims):
+        ax1.set_ylim(ylims)
+        ax2.set_ylim(ylims)
+        hlines = np.arange(1, 3.1, 1)
+        for hline in hlines:
+            ax1.axhline(hline, color='grey', alpha=0.2, linewidth=0.5)
 
     def get_xarray(self):
         interval = 0.5
@@ -78,12 +95,6 @@ class StackResidPlot:
             k_array[idx] = self.d_kappa[strand_id][resid_i].get_k_by_atomnames(big_k_mat, atomname_i, atomname_j)
         return k_array
 
-    def get_d_axes(self, axes):
-        d_axes = dict()
-        for idx, strand_id in enumerate(self.strand_id_lst):
-            d_axes[strand_id] = axes[idx]
-        return d_axes
-
     def get_d_kappa(self):
         d_kappa = dict()
         for strand_id in self.strand_id_lst:
@@ -103,16 +114,24 @@ class StackResidPlot:
             d_result[(strand_id, resid, atomname)] = idx
         return d_result
 
-    def set_ylabel_xlabel(self, ax):
+    def set_ylabel_xlabel(self, ax1, ax2):
         #ax.set_ylabel('k (kcal/mol/Å$^2$)', fontsize=self.lbfz)
         #ax.set_xlabel('Resid', fontsize=self.lbfz)
-        ax.tick_params(axis='y', labelsize=self.tickfz, length=1, pad=1)
-        ax.tick_params(axis='x', labelsize=self.tickfz, length=1, pad=0.6)
+        ax1.tick_params(axis='y', labelsize=self.tickfz, length=1, pad=1)
+        ax1.tick_params(axis='x', labelsize=self.tickfz, length=1, pad=0.6)
+        ax2.tick_params(axis='x', labelsize=self.tickfz, length=1, pad=0.6)
+        ax1.tick_params(axis='x', color='red', labelcolor='red')
+        ax2.tick_params(axis='x', color='blue', labelcolor='blue')
 
-    def set_xticks(self, d_axes):
+    def set_xticks(self, ax1, ax2):
         xticks = list(range(4, 19))
+        d_axes = {'STRAND1': ax2, 'STRAND2': ax1}
         for strand_id in self.strand_id_lst:
             d_axes[strand_id].set_xticks(xticks)
             seq = self.d_seq[strand_id]
             xticklabels = [seq[resid-1] for resid in xticks]
             d_axes[strand_id].set_xticklabels(xticklabels)
+        ax1.set_xlim(4, 18)
+        ax2.set_xlim(4, 18)
+        for resid in np.arange(4.5, 18, 1):
+            ax1.axvline(resid, linestyle='--', linewidth=0.5, color='grey', alpha=0.2)

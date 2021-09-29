@@ -276,3 +276,35 @@ class HBResidPlotV1(HBResidPlot):
                 d_axes[host] = fig.add_subplot(inner_grid[inner_idx])
                 host_idx += 1
         return fig, d_axes
+
+
+class HBResidPlotForpptv0(HBResidPlotV1):
+    hosts = ['a_tract_21mer', 'g_tract_21mer']
+    group2 = ['g_tract_21mer']
+    group4 = ['a_tract_21mer', 'g_tract_21mer']
+
+    def plot_hb_vs_resids(self, figsize, out_wspace):
+        fig, d_axes = self.get_d_axes(figsize, out_wspace)
+        for host in self.hosts:
+            self.plot_lines(d_axes[host], host)
+        self.set_yaxis_right(d_axes)
+        self.set_ylims_all(d_axes)
+        self.set_yticks(d_axes)
+        self.set_xticks(d_axes)
+        #self.remove_xticks(d_axes)
+        self.set_xtick_size(d_axes)
+        self.set_ytick_size(d_axes)
+        self.set_xlabel(d_axes)
+        self.set_ylabel(d_axes)
+        return fig, d_axes
+
+    def get_d_axes(self, figsize, out_wspace):
+        fig = plt.figure(figsize=figsize, facecolor='white')
+        d_axes = {host: None for host in self.hosts}
+        outer_grid = gridspec.GridSpec(1, 2, wspace=out_wspace, hspace=0)
+        host_idx = 0
+        for outer_idx in range(2):
+            host = self.hosts[host_idx]
+            d_axes[host] = fig.add_subplot(outer_grid[outer_idx])
+            host_idx += 1
+        return fig, d_axes
