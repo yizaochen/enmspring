@@ -137,12 +137,12 @@ class BackboneResidPlot(StackResidPlot):
     def plot_two_strands(self, figsize, start_mode, end_mode, ylims, d_pair, yticks=None, assist_hlines=None):
         big_k_mat = self.kmat_agent.get_K_mat(start_mode, end_mode)
         fig, axes = plt.subplots(nrows=2, ncols=1, figsize=figsize, facecolor='white')
-        d_axes = self.get_d_axes(axes)
+        d_axes = {'STRAND1': axes[0], 'STRAND2': axes[1]}
         for strand_id in self.strand_id_lst:
             self.plot_lines(d_axes[strand_id], strand_id, big_k_mat, d_pair)
-            self.set_xticks(d_axes)
+            self.set_xticks(axes[0], axes[1])
             self.set_ylabel_xlabel(d_axes[strand_id])
-            self.set_ylims(d_axes[strand_id], ylims)
+            self.set_ylims(axes[0], axes[1], ylims)
             if yticks is not None:
                 d_axes[strand_id].set_yticks(yticks)
             if assist_hlines is not None:

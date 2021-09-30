@@ -207,6 +207,8 @@ class ThreeBaseSteps:
     def get_highlight_springs_tcl_txt_backbone(self, i_or_j, d_springs, radius, colorname):
         if i_or_j == 'i':
             res_pair_lst = [('i', 'i')]
+        elif i_or_j == 'i+1':
+            res_pair_lst = [('i+1', 'i+1')]
         else:
             res_pair_lst = [('j', 'j')]
         txt_lst = []

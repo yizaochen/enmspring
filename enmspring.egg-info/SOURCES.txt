@@ -8,6 +8,7 @@ enmspring/atom.py
 enmspring/atompair.py
 enmspring/backbone_k.py
 enmspring/basestack_k.py
+enmspring/correlation_window.py
 enmspring/eigenvector_backbone.py
 enmspring/eigenvector_plot.py
 enmspring/fluctpair.py
