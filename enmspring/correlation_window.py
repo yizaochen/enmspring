@@ -16,6 +16,7 @@ class HBAgent:
     resid_lst = list(range(4, 19))
     type_lst = ['type1', 'type2', 'type3']
     d_abbr_hb = {'HB1': 'type1', 'HB2': 'type2', 'HB3': 'type3'}
+    strand_lst = ['STRAND1', 'STRAND2']
 
     def __init__(self, host, bigtraj_folder, corr_folder):
         self.host = host
@@ -27,6 +28,7 @@ class HBAgent:
         self.df = None
 
         self.hb_reader = None
+        self.d_seq = {'STRAND1': sequences[host]['guide'], 'STRAND2': sequences[host]['target']}
 
     def get_hb_array(self, interaction, strand_id):
         typename = self.d_abbr_hb[interaction]
@@ -39,6 +41,32 @@ class HBAgent:
             key = f'{resid}-{typename}'
             data_lst += self.df[key].tolist()
         return np.array(data_lst)
+
+    def get_hb_array_split_by_direction(self, interaction, direction):
+        # direction: AT, TA, GC, CG
+        # the meaning: e.g. AT -> 5'-AT-3'
+        typename = self.d_abbr_hb[interaction]
+        data_lst = list()
+        for strand_id in self.strand_lst:
+            if strand_id == 'STRAND1':
+                resid_lst = list(range(4, 19))
+            else:
+                resid_lst = list(range(18, 3, -1))
+
+            for resid in resid_lst:
+                if self.check_direction(strand_id, resid, direction):
+                    key = f'{resid}-{typename}'
+                    data_lst += self.df[key].tolist()
+        return np.array(data_lst)
+
+    def check_direction(self, strand_id, resid_j, direction):
+        if strand_id == 'STRAND2':
+            resid_j = self.n_bp - resid_j + 1
+        resid_i = resid_j - 1
+        resname_i = self.d_seq[strand_id][resid_i-1]
+        resname_j = self.d_seq[strand_id][resid_j-1]
+        target = f'{resname_i}{resname_j}'
+        return target == direction
 
     def set_hb_reader(self):
         self.hb_reader = HBAgentBigTraj(self.host, self.bigtraj_folder, self.n_bp, self.only_central, self.split_5, self.one_big_window, self.interval_time)
@@ -144,6 +172,43 @@ class BackboneAgent:
             data_lst += self.df[key].tolist()
         return np.array(data_lst)
 
+    def get_bb1tobb3_split_by_direction(self, interaction, direction, upper_or_lower):
+        # direction: AT, TA, GC, CG
+        # the meaning: e.g. AT -> 5'-AT-3'
+        if upper_or_lower == 'upper':
+            resid_lst = range(3, 18)
+        else:
+            resid_lst = range(4, 19)
+        data_lst = list()
+        for resid_i in resid_lst:
+            resid_j = resid_i + 1
+            if self.check_direction_bb1tobb3(resid_i, resid_j, direction):
+                key = f'{resid_i}-{resid_j}-{interaction}'
+                data_lst += self.df[key].tolist()
+        return data_lst
+
+    def get_bb4tobb5_split_by_direction(self, interaction, direction):
+        resid_lst = list(range(4, 19))
+        data_lst = list()
+        for resid_j in resid_lst:
+            if self.check_direction_bb4tobb5(resid_j, direction):
+                key = f'{resid_j}-{resid_j}-{interaction}'
+                data_lst += self.df[key].tolist()
+        return data_lst
+
+    def check_direction_bb1tobb3(self, resid_i, resid_j, direction):
+        resname_i = self.d_seq[self.strand_id][resid_i-1]
+        resname_j = self.d_seq[self.strand_id][resid_j-1]
+        target = f'{resname_i}{resname_j}'
+        return target == direction
+
+    def check_direction_bb4tobb5(self, resid_j, direction):
+        resid_i = resid_j - 1
+        resname_i = self.d_seq[self.strand_id][resid_i-1]
+        resname_j = self.d_seq[self.strand_id][resid_j-1]
+        target = f'{resname_i}{resname_j}'
+        return target == direction
+
     def make_df(self):
         self.set_laplacian_from_small_agents()
         d_result = dict()
@@ -241,6 +306,25 @@ class StackAgent(BackboneAgent):
             data_lst += self.df[key].tolist()
         return np.array(data_lst)
 
+    def get_st1_array_split_by_direction(self, interaction, direction, upper_or_lower):
+        if upper_or_lower == 'upper':
+            resid_lst = range(3, 18)
+        else:
+            resid_lst = range(4, 19)
+        data_lst = list()
+        for resid_i in resid_lst:
+            resid_j = resid_i + 1
+            if self.check_direction_st(resid_i, resid_j, direction):
+                key = f'{resid_i}-{resid_j}-{interaction}'
+                data_lst += self.df[key].tolist()
+        return data_lst
+
+    def check_direction_st(self, resid_i, resid_j, direction):
+        resname_i = self.d_seq[self.strand_id][resid_i-1]
+        resname_j = self.d_seq[self.strand_id][resid_j-1]
+        target = f'{resname_i}{resname_j}'
+        return target == direction
+
     def get_f_df(self):
         return path.join(self.corr_input_folder, f'{self.host}_{self.strand_id}_basestack.csv')
 
@@ -299,6 +383,23 @@ class CorrelationScatterv0:
             data_array = self.d_stack_agent[strand_id].get_st1_array(interaction, upper_or_lower_st)
         return data_array
 
+    def get_data_array_by_interaction_and_direction(self, interaction, direction, upper_or_lower_bb, upper_or_lower_st):
+        if interaction in ['HB1', 'HB2', 'HB3']:
+            data_array = self.hb_agent.get_hb_array_split_by_direction(interaction, direction)
+        elif interaction in ['BB1', 'BB2', 'BB3']:
+            data_lst_1 = self.d_backbone_agent['STRAND1'].get_bb1tobb3_split_by_direction(interaction, direction, upper_or_lower_bb)
+            data_lst_2 = self.d_backbone_agent['STRAND2'].get_bb1tobb3_split_by_direction(interaction, direction, upper_or_lower_bb)
+            data_array = np.array(data_lst_1+data_lst_2)
+        elif interaction in ['BB4', 'BB5']:
+            data_lst_1 = self.d_backbone_agent['STRAND1'].get_bb4tobb5_split_by_direction(interaction, direction)
+            data_lst_2 = self.d_backbone_agent['STRAND2'].get_bb4tobb5_split_by_direction(interaction, direction)
+            data_array = np.array(data_lst_1+data_lst_2)
+        else:
+            data_lst_1 = self.d_stack_agent['STRAND1'].get_st1_array_split_by_direction(interaction, direction, upper_or_lower_st)
+            data_lst_2 = self.d_stack_agent['STRAND2'].get_st1_array_split_by_direction(interaction, direction, upper_or_lower_st)
+            data_array = np.array(data_lst_1+data_lst_2)
+        return data_array
+
     def ini_hb_agent(self):
         self.hb_agent = HBAgent(self.host, self.bigtraj_folder, self.corr_folder)
         self.hb_agent.read_df()
@@ -352,3 +453,104 @@ class BigScatterv0:
         ax.set_ylabel(f'{interaction_y} (kcal/mol/Å$^2$)', fontsize=self.lbfz)
         ax.legend(fontsize=self.lgfz)
         return fig, ax
+
+class BigScatterv1(BigScatterv0):
+    strand_lst = ['STRAND1', 'STRAND2']
+    interaction_x_lst = ['HB1', 'HB2', 'HB3']
+    interaction_y_lst = ['BB1', 'BB2', 'BB3', 'BB4', 'BB5', 'ST1']
+    nrows = len(interaction_x_lst)
+    ncols = len(interaction_y_lst)
+    upper_or_lower_bb = 'upper'
+    upper_or_lower_st = 'upper'
+    d_color = {
+        'a_tract_21mer': {'STRAND1': '#024b7a', 'STRAND2': '#44a5c2'},
+        'g_tract_21mer': {'STRAND1': '#dc8350', 'STRAND2': '#f0cd84'},
+        'atat_21mer': {'AT': '#0b967d', 'TA': '#acd5c9'},
+        'gcgc_21mer': {'GC': '#c91513', 'CG': '#f54242'}
+    }
+    d_label = {
+        'a_tract_21mer': {'STRAND1': 'A-tract: AA', 'STRAND2': 'A-tract: TT'},
+        'g_tract_21mer': {'STRAND1': 'G-tract: GG', 'STRAND2': 'G-tract: CC'},
+        'atat_21mer': {'AT': 'TATA: AT', 'TA': 'TATA: TA'},
+        'gcgc_21mer': {'GC': 'CpG: GC', 'CG': 'CpG: CG'}
+    }
+    d_direction_lst = {'atat_21mer': ['AT', 'TA'], 'gcgc_21mer': ['GC', 'CG']}
+
+    lgfz = 7
+    lbfz = 8
+    xlim = (0, 10)
+    ylim = (0, 10)
+
+    def scatter_main(self, figsize, s, centroid=False):
+        fig, axes = plt.subplots(nrows=self.nrows, ncols=self.ncols, figsize=figsize, facecolor='white')
+        for row_id, interaction_x in enumerate(self.interaction_x_lst):
+            for col_id, interaction_y in enumerate(self.interaction_y_lst):
+                ax = axes[row_id, col_id]
+                if centroid:
+                    self.scatter_homogeneous_hosts_centroid(ax, interaction_x, interaction_y, s)
+                    self.scatter_heterogeneous_hosts_centroid(ax, interaction_x, interaction_y, s)
+                else:
+                    self.scatter_homogeneous_hosts(ax, interaction_x, interaction_y, s)
+                    self.scatter_heterogeneous_hosts(ax, interaction_x, interaction_y, s)
+                self.set_xy_label(ax, interaction_x, interaction_y)
+        axes[0,0].legend(fontsize=self.lgfz)
+        return fig, axes
+
+    def scatter_homogeneous_hosts(self, ax, interaction_x, interaction_y, s):
+        host_lst = ['a_tract_21mer', 'g_tract_21mer']
+        for host in host_lst:
+            agent = self.d_corr_agent[host]
+            for strand_id in self.strand_lst:
+                x_array = agent.get_data_array_by_interaction(interaction_x, strand_id, self.upper_or_lower_bb, self.upper_or_lower_st)
+                y_array = agent.get_data_array_by_interaction(interaction_y, strand_id, self.upper_or_lower_bb, self.upper_or_lower_st)
+                label = self.d_label[host][strand_id]
+                color = self.d_color[host][strand_id]
+                ax.scatter(x_array, y_array, s=s, label=label, color=color)
+
+    def scatter_heterogeneous_hosts(self, ax, interaction_x, interaction_y, s):
+        host_lst = ['atat_21mer', 'gcgc_21mer']
+        for host in host_lst:
+            agent = self.d_corr_agent[host]
+            direction_lst = self.d_direction_lst[host]
+            for direction in direction_lst:
+                x_array = agent.get_data_array_by_interaction_and_direction(interaction_x, direction, self.upper_or_lower_bb, self.upper_or_lower_st)
+                y_array = agent.get_data_array_by_interaction_and_direction(interaction_y, direction, self.upper_or_lower_bb, self.upper_or_lower_st)
+                label = self.d_label[host][direction]
+                color = self.d_color[host][direction]
+                ax.scatter(x_array, y_array, s=s, label=label, color=color)
+
+    def scatter_homogeneous_hosts_centroid(self, ax, interaction_x, interaction_y, s):
+        host_lst = ['a_tract_21mer', 'g_tract_21mer']
+        for host in host_lst:
+            agent = self.d_corr_agent[host]
+            for strand_id in self.strand_lst:
+                x_array = agent.get_data_array_by_interaction(interaction_x, strand_id, self.upper_or_lower_bb, self.upper_or_lower_st)
+                y_array = agent.get_data_array_by_interaction(interaction_y, strand_id, self.upper_or_lower_bb, self.upper_or_lower_st)
+                label = self.d_label[host][strand_id]
+                color = self.d_color[host][strand_id]
+                ax.scatter(x_array.mean(), y_array.mean(), s=s, label=label, color=color)
+        if interaction_y == 'BB4':
+            ax.set_ylim((10, 30))
+        elif interaction_y == 'ST1':
+            ax.set_ylim((-0.3, 3.5))
+        else:
+            ax.set_ylim(self.ylim)
+        ax.set_xlim(self.xlim)
+
+    def scatter_heterogeneous_hosts_centroid(self, ax, interaction_x, interaction_y, s):
+        host_lst = ['atat_21mer', 'gcgc_21mer']
+        for host in host_lst:
+            agent = self.d_corr_agent[host]
+            direction_lst = self.d_direction_lst[host]
+            for direction in direction_lst:
+                x_array = agent.get_data_array_by_interaction_and_direction(interaction_x, direction, self.upper_or_lower_bb, self.upper_or_lower_st)
+                y_array = agent.get_data_array_by_interaction_and_direction(interaction_y, direction, self.upper_or_lower_bb, self.upper_or_lower_st)
+                label = self.d_label[host][direction]
+                color = self.d_color[host][direction]
+                ax.scatter(x_array.mean(), y_array.mean(), s=s, label=label, color=color, marker='x')
+
+    def set_xy_label(self, ax, interaction_x, interaction_y):
+        ax.set_xlabel(f'{interaction_x} (kcal/mol/Å$^2$)', fontsize=self.lbfz)
+        ax.set_ylabel(f'{interaction_y} (kcal/mol/Å$^2$)', fontsize=self.lbfz)
+
+
