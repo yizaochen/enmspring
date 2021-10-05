@@ -16,6 +16,7 @@ enmspring/graph_decompose.py
 enmspring/graphs.py
 enmspring/graphs_bigtraj.py
 enmspring/hb_k.py
+enmspring/hb_st_scatter.py
 enmspring/hb_util.py
 enmspring/ic_table.py
 enmspring/importance_atom.py
@@ -33,6 +34,7 @@ enmspring/spring.py
 enmspring/stack_util.py
 enmspring/vmddraw.py
 enmspring/vmddraw_backbone.py
+enmspring/vmddraw_bb_st_hb.py
 enmspring/vmddraw_meangraph.py
 enmspring/vmddraw_tribasesteps.py
 enmspring.egg-info/PKG-INFO

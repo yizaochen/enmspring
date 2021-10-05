@@ -20,15 +20,16 @@ class GraphAgent:
     n_bp = 21
     cutoff = 4.7
 
-    def __init__(self, host, rootfolder):
+    def __init__(self, host, rootfolder, time_label='0_5000'):
         self.host = host
         self.rootfolder = rootfolder
+        self.time_label = time_label
 
         self.host_folder = path.join(rootfolder, host)
         self.na_folder = path.join(self.host_folder, self.type_na)
         self.input_folder = path.join(self.na_folder, 'input')
 
-        self.spring_obj = Spring(self.rootfolder, self.host, self.type_na, self.n_bp)
+        self.spring_obj = Spring(self.rootfolder, self.host, self.type_na, self.n_bp, time_label)
         self.df_all_k = self.spring_obj.read_k_b0_pairtype_df_given_cutoff(self.cutoff)
 
         self.crd = path.join(self.input_folder, '{0}.nohydrogen.avg.crd'.format(self.type_na))
@@ -457,8 +458,8 @@ class GraphAgent:
 
 class Stack(GraphAgent):
 
-    def __init__(self, host, rootfolder):
-        super().__init__(host, rootfolder)
+    def __init__(self, host, rootfolder, time_label='0_5000'):
+        super().__init__(host, rootfolder, time_label)
         self.df_st = self.read_df_st()
 
     def pre_process(self):
@@ -520,8 +521,8 @@ class Stack(GraphAgent):
         return df1[mask]
 
 class StackHB(Stack):
-    def __init__(self, host, rootfolder):
-        super().__init__(host, rootfolder)
+    def __init__(self, host, rootfolder, time_label='0_5000'):
+        super().__init__(host, rootfolder, time_label)
         self.hb_agent = HBAgent(host, rootfolder, self.n_bp)
 
     def build_adjacency_from_df_st_df_hb(self):
@@ -626,9 +627,10 @@ class BackboneRibose(GraphAgent):
         df_pp2_filter_angle = get_df_by_filter_PP2_angles(get_df_by_filter_PP(self.df_all_k, 'PP2'))
         df_pp3 = get_df_by_filter_PP(self.df_all_k, 'PP3')
         df_pp_lst = [df_pp2_filter_angle, df_pp3]
-        df_rb_lst = [get_df_by_filter_RB(self.df_all_k, subcategory) for subcategory in ['RB2', 'RB3']]
-        df_pb_lst = [get_df_by_filter_PB(self.df_all_k, subcategory) for subcategory in ['PB']]
-        df_pp_r_rb = pd.concat(df_pp_lst+df_rb_lst+df_pb_lst)
+        #df_rb_lst = [get_df_by_filter_RB(self.df_all_k, subcategory) for subcategory in ['RB2', 'RB3']]
+        #df_pb_lst = [get_df_by_filter_PB(self.df_all_k, subcategory) for subcategory in ['PB']]
+        #df_pp_r_rb = pd.concat(df_pp_lst+df_rb_lst+df_pb_lst)
+        df_pp_r_rb = pd.concat(df_pp_lst)
         criteria = 1e-1
         mask = (df_pp_r_rb['k'] > criteria)
         return df_pp_r_rb[mask]

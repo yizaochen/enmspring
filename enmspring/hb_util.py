@@ -52,7 +52,7 @@ class HBAgent:
             return df3
 
     def read_df_at_type3(self):
-        spring_obj = Spring(self.rootfolder, self.host, self.type_na, self.n_bp)
+        spring_obj = Spring(self.rootfolder, self.host, self.type_na, self.n_bp, self.time_label)
         df0 = spring_obj.read_k_b0_pairtype_df_given_cutoff(self.cutoff)
         df1 = get_df_by_filter_bp(df0, 'bp1')
         df2_1 = self.filter_C2_O2(df1)
