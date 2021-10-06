@@ -32,6 +32,7 @@ enmspring/pairtype.py
 enmspring/prominent_plot.py
 enmspring/spring.py
 enmspring/stack_util.py
+enmspring/sum_bb_st_hb_k.py
 enmspring/vmddraw.py
 enmspring/vmddraw_backbone.py
 enmspring/vmddraw_bb_st_hb.py

@@ -104,6 +104,10 @@ class StackMeanModeAgent:
     def process_first_small_agent(self):
         time1, time2 = self.time_list[0]
         self.d_smallagents[(time1,time2)].pre_process()
+        self.set_d_idx_and_inverse()
+
+    def set_d_idx_and_inverse(self):
+        time1, time2 = self.time_list[0]
         self.node_list = self.d_smallagents[(time1,time2)].node_list
         self.d_idx = self.d_smallagents[(time1,time2)].d_idx
         self.d_idx_inverse = {y:x for x,y in self.d_idx.items()}
