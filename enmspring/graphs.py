@@ -627,10 +627,10 @@ class BackboneRibose(GraphAgent):
         df_pp2_filter_angle = get_df_by_filter_PP2_angles(get_df_by_filter_PP(self.df_all_k, 'PP2'))
         df_pp3 = get_df_by_filter_PP(self.df_all_k, 'PP3')
         df_pp_lst = [df_pp2_filter_angle, df_pp3]
-        #df_rb_lst = [get_df_by_filter_RB(self.df_all_k, subcategory) for subcategory in ['RB2', 'RB3']]
-        #df_pb_lst = [get_df_by_filter_PB(self.df_all_k, subcategory) for subcategory in ['PB']]
-        #df_pp_r_rb = pd.concat(df_pp_lst+df_rb_lst+df_pb_lst)
-        df_pp_r_rb = pd.concat(df_pp_lst)
+        df_rb_lst = [get_df_by_filter_RB(self.df_all_k, subcategory) for subcategory in ['RB2', 'RB3']]
+        df_pb_lst = [get_df_by_filter_PB(self.df_all_k, subcategory) for subcategory in ['PB']]
+        df_pp_r_rb = pd.concat(df_pp_lst+df_rb_lst+df_pb_lst)
+        #df_pp_r_rb = pd.concat(df_pp_lst)
         criteria = 1e-1
         mask = (df_pp_r_rb['k'] > criteria)
         return df_pp_r_rb[mask]
