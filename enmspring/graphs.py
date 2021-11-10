@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 from enmspring import pairtype
 from enmspring.spring import Spring
-from enmspring.k_b0_util import get_df_by_filter_st, get_df_by_filter_PP, get_df_by_filter_R, get_df_by_filter_RB, get_df_by_filter_PB, get_df_by_filter_PP2_angles
+from enmspring.k_b0_util import get_df_by_filter_st, get_df_by_filter_PP, get_df_by_filter_R, get_df_by_filter_RB, get_df_by_filter_PB, get_df_by_filter_PP2_angles, get_df_same_resid
 from enmspring.hb_util import HBAgent
 from enmspring.na_seq import sequences
 from enmspring.networkx_display import THY_Base, CYT_Base, ADE_Base, GUA_Base, THY_Right_Base, CYT_Right_Base, ADE_Right_Base, GUA_Right_Base
@@ -471,6 +471,7 @@ class Stack(GraphAgent):
         self.eigen_decompose()
         self.set_benchmark_array()
         self.set_strand_array()
+        self.set_b0_mat_by_df(self.df_st)
 
     def build_adjacency_from_df_st(self):
         self.set_adjacency_by_df(self.df_st)
@@ -631,6 +632,92 @@ class BackboneRibose(GraphAgent):
         df_pb_lst = [get_df_by_filter_PB(self.df_all_k, subcategory) for subcategory in ['PB']]
         df_pp_r_rb = pd.concat(df_pp_lst+df_rb_lst+df_pb_lst)
         #df_pp_r_rb = pd.concat(df_pp_lst)
+        criteria = 1e-1
+        mask = (df_pp_r_rb['k'] > criteria)
+        return df_pp_r_rb[mask]
+
+    def build_adjacency_from_pp_r(self):
+        df_sele = self.get_df_backbone_ribose()
+        self.set_adjacency_by_df(df_sele)
+        self.make_adjacency_symmetry()
+        self.set_b0_mat_by_df(df_sele)
+
+    def get_sele_A_by_idx(self, atomid_i, atomid_j):
+        sele_A = np.zeros((self.n_node, self.n_node))
+        idx_i = self.d_idx[self.atomid_map_inverse[atomid_i]]
+        idx_j = self.d_idx[self.atomid_map_inverse[atomid_j]]
+        sele_A[idx_i, idx_j] = self.adjacency_mat[idx_i, idx_j]
+        i_lower = np.tril_indices(self.n_node, -1)
+        sele_A[i_lower] = sele_A.transpose()[i_lower]
+        return sele_A
+
+    def get_df_qTAq_for_vmd_draw(self, eigv_id, strandid):
+        df = self.get_df_backbone_ribose()
+        columns_qTAq = ['Strand_i', 'Resid_i', 'Atomname_i', 'Strand_j', 'Resid_j', 'Atomname_j']
+        d_qTAq = {col_name: df[col_name].tolist() for col_name in columns_qTAq}
+        d_qTAq['qTAq'] = np.zeros(df.shape[0])
+        q = self.get_eigvector_by_strand(strandid, eigv_id)[0]
+        for idx, atomids in enumerate(zip(df['Atomid_i'], df['Atomid_j'])):
+            atomid_i , atomid_j = atomids
+            A = self.get_sele_A_by_idx(atomid_i, atomid_j)
+            d_qTAq['qTAq'][idx] = np.dot(q.T, np.dot(A, q))
+        df_result = pd.DataFrame(d_qTAq)
+        columns_qTAq.append('qTAq')
+        return df_result[columns_qTAq]
+
+    def set_benchmark_array(self):
+        idx_start_strand2 = self.d_idx['B1']
+        strand1 = np.zeros(self.n_node)
+        strand2 = np.zeros(self.n_node)
+        strand1[:idx_start_strand2] = 1.
+        strand2[idx_start_strand2:] = 1.
+        self.strand1_benchmark = strand1
+        self.strand2_benchmark = strand2
+
+    def write_show_backbone_edges_tcl(self, tcl_out, radius=0.05):
+        lines = ['graphics 0 color 1\n', 'graphics 0 material AOShiny\n']
+        for subcategory in ['PP0', 'PP1', 'PP2', 'PP3']:
+            df_sele = get_df_by_filter_PP(self.df_all_k, subcategory)
+            lines = self.process_lines_for_edges_tcl(lines, df_sele, radius=radius)
+        for subcategory in ['R0', 'R1']:
+            df_sele = get_df_by_filter_R(self.df_all_k, subcategory)
+            lines = self.process_lines_for_edges_tcl(lines, df_sele, radius=radius)
+        self.write_lines_to_tcl_out(lines, tcl_out)
+
+class BB1(GraphAgent):
+    def pre_process(self):
+        self.build_node_list()
+        self.initialize_three_mat()
+        self.build_adjacency_from_pp_r()
+        self.build_degree_from_adjacency()
+        self.build_laplacian_by_adjacency_degree()
+        self.eigen_decompose()
+        self.set_benchmark_array()
+        self.set_strand_array()
+
+    def build_node_list(self):
+        node_list = list()
+        d_idx = dict()
+        idx = 0
+        for cgname, atomname in self.atomname_map.items():
+            atom_type = pairtype.d_atomcgtype[atomname]
+            if (atom_type == 'P') or (atom_type == 'S') or (atom_type == 'B'):
+                node_list.append(cgname)
+                d_idx[cgname] = idx
+                idx += 1
+        self.node_list = node_list
+        self.d_idx = d_idx
+        self.n_node = len(self.node_list)
+        print(f"Thare are {self.n_node} nodes.")
+
+    def get_df_backbone_ribose(self):
+        df_pp2_filter_angle = get_df_by_filter_PP2_angles(get_df_by_filter_PP(self.df_all_k, 'PP2'))
+        df_pp3 = get_df_by_filter_PP(self.df_all_k, 'PP3')
+        df_pp_lst = [df_pp2_filter_angle, df_pp3]
+        df_rb_lst = [get_df_by_filter_RB(self.df_all_k, subcategory) for subcategory in ['RB2', 'RB3']]
+        df_pb_lst = [get_df_by_filter_PB(self.df_all_k, subcategory) for subcategory in ['PB']]
+        df_pp_r_rb = pd.concat(df_pp_lst+df_rb_lst+df_pb_lst)
+        df_pp_r_rb = get_df_same_resid(df_pp_r_rb)
         criteria = 1e-1
         mask = (df_pp_r_rb['k'] > criteria)
         return df_pp_r_rb[mask]

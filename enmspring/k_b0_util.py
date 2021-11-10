@@ -147,6 +147,10 @@ def get_df_by_filter_bp(df0, category):
         mask = (df0['PairType'] == 'HB-1') | (df0['PairType'] == 'Oppo-Ring-1')
     return df0[mask]
 
+def get_df_same_resid(df0):
+    mask = (df0['Resid_i'] == df0['Resid_j'])
+    return df0[mask]
+
     
 filter_mapping = {'PP': get_df_by_filter_PP, 'st': get_df_by_filter_st, 'PB': get_df_by_filter_PB,
                   'R': get_df_by_filter_R, 'RB': get_df_by_filter_RB, 'bp': get_df_by_filter_bp}
