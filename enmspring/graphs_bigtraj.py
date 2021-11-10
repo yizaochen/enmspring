@@ -485,6 +485,20 @@ class ProminentModesBackbone(ProminentModes):
     def set_f_mean_r_alpha_array(self):
         return path.join(self.npy_folder, 'mean_r_alpha_backbone.npy')
 
+class ProminentModesBB1(ProminentModes):
+    def initialize_s_agent(self):
+        self.s_agent = BB1MeanModeAgent(self.host, self.rootfolder, self.interval_time)
+        self.s_agent.load_mean_mode_laplacian_from_npy()
+        self.s_agent.eigen_decompose()
+
+        self.mean_modes_w = self.s_agent.w # eigenvalues
+        self.mean_modes_v = self.s_agent.v # eigenvectors
+        self.time_list = self.s_agent.time_list
+        self.d_smallagents = self.s_agent.d_smallagents
+        
+    def set_f_mean_r_alpha_array(self):
+        return path.join(self.npy_folder, 'mean_r_alpha_BB1.npy')
+
 class StackGraph(Stack):
     def __init__(self, host, rootfolder, time_label):
         self.host = host
