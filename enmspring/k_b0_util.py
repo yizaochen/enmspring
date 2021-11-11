@@ -151,6 +151,53 @@ def get_df_same_resid(df0):
     mask = (df0['Resid_i'] == df0['Resid_j'])
     return df0[mask]
 
+class FilterSB0Agent:
+    d_resname_lst = {'a_tract_21mer': ['A', 'T'], 'g_tract_21mer': ['G', 'C'], 
+                     'atat_21mer': ['A', 'T'], 'gcgc_21mer': ['G', 'C']}
+
+    def __init__(self, host, df, d_seq):
+        self.host = host
+        self.df = df
+        self.d_seq = d_seq
+        self.resname_lst = self.d_resname_lst[self.host]
+
+    def filterSB0_main(self):
+        self.add_resname_col()
+        df_R, df_Y = self.get_split_df()
+        df_R = self.filter_R(df_R)
+        df_Y = self.filter_Y(df_Y)
+        return pd.concat([df_R, df_Y])
+
+    def add_resname_col(self):
+        def get_resname(strand_id, resid):
+            return self.d_seq[strand_id][resid-1]
+        self.df['resname_i'] = self.df.apply(lambda x: get_resname(strand_id = x['Strand_i'], resid = x['Resid_i']), axis=1)
+
+    def get_split_df(self):
+        df_R = self.df[self.df['resname_i'] == self.resname_lst[0]]
+        df_Y = self.df[self.df['resname_i'] == self.resname_lst[1]]
+        return df_R, df_Y
+
+    def filter_R(self, df0):
+        # A, G: remove C1'-N3, C2'-C8, C2'-N7
+        mask = ((df0['Atomname_i'] == "C1'") & (df0['Atomname_j'] == "N3")) | ((df0['Atomname_j'] == "C1'") & (df0['Atomname_i'] == "N3"))
+        df1 = df0[~mask]
+        mask = ((df1['Atomname_i'] == "C2'") & (df1['Atomname_j'] == "C8")) | ((df1['Atomname_j'] == "C2'") & (df1['Atomname_i'] == "C8"))
+        df2 = df1[~mask]
+        mask = ((df2['Atomname_i'] == "C2'") & (df2['Atomname_j'] == "N7")) | ((df2['Atomname_j'] == "C2'") & (df2['Atomname_i'] == "N7"))
+        df3 = df2[~mask]
+        return df3
+
+    def filter_Y(self, df0):
+        # C, T: remove C1'-O2, C2'-C6, C2'-C5
+        mask = ((df0['Atomname_i'] == "C1'") & (df0['Atomname_j'] == "O2")) | ((df0['Atomname_j'] == "C1'") & (df0['Atomname_i'] == "O2"))
+        df1 = df0[~mask]
+        mask = ((df1['Atomname_i'] == "C2'") & (df1['Atomname_j'] == "C6")) | ((df1['Atomname_j'] == "C2'") & (df1['Atomname_i'] == "C6"))
+        df2 = df1[~mask]
+        mask = ((df2['Atomname_i'] == "C2'") & (df2['Atomname_j'] == "C5")) | ((df2['Atomname_j'] == "C2'") & (df2['Atomname_i'] == "C5"))
+        df3 = df2[~mask]
+        return df3
+
     
 filter_mapping = {'PP': get_df_by_filter_PP, 'st': get_df_by_filter_st, 'PB': get_df_by_filter_PB,
                   'R': get_df_by_filter_R, 'RB': get_df_by_filter_RB, 'bp': get_df_by_filter_bp}

@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 from enmspring import pairtype
 from enmspring.spring import Spring
-from enmspring.k_b0_util import get_df_by_filter_st, get_df_by_filter_PP, get_df_by_filter_R, get_df_by_filter_RB, get_df_by_filter_PB, get_df_by_filter_PP2_angles, get_df_same_resid
+from enmspring.k_b0_util import get_df_by_filter_st, get_df_by_filter_PP, get_df_by_filter_R, get_df_by_filter_RB, get_df_by_filter_PB, get_df_by_filter_PP2_angles, get_df_same_resid, FilterSB0Agent
 from enmspring.hb_util import HBAgent
 from enmspring.na_seq import sequences
 from enmspring.networkx_display import THY_Base, CYT_Base, ADE_Base, GUA_Base, THY_Right_Base, CYT_Right_Base, ADE_Right_Base, GUA_Right_Base
@@ -719,8 +719,10 @@ class BB1(GraphAgent):
         df_pp_r_rb = pd.concat(df_pp_lst+df_rb_lst+df_pb_lst)
         df_pp_r_rb = get_df_same_resid(df_pp_r_rb)
         criteria = 1e-1
-        mask = (df_pp_r_rb['k'] > criteria)
-        return df_pp_r_rb[mask]
+        df_pp_r_rb = df_pp_r_rb[df_pp_r_rb['k']>criteria]
+        f_agent = FilterSB0Agent(self.host, df_pp_r_rb, self.d_seq)
+        df_final = f_agent.filterSB0_main()
+        return df_final
 
     def build_adjacency_from_pp_r(self):
         df_sele = self.get_df_backbone_ribose()
