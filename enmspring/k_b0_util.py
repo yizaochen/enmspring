@@ -151,6 +151,10 @@ def get_df_same_resid(df0):
     mask = (df0['Resid_i'] == df0['Resid_j'])
     return df0[mask]
 
+def get_df_not_same_resid(df0):
+    mask = (df0['Resid_i'] == df0['Resid_j'])
+    return df0[~mask]
+
 class FilterSB0Agent:
     d_resname_lst = {'a_tract_21mer': ['A', 'T'], 'g_tract_21mer': ['G', 'C'], 
                      'atat_21mer': ['A', 'T'], 'gcgc_21mer': ['G', 'C']}

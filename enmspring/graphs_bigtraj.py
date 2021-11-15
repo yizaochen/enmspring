@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import MDAnalysis
 import numpy as np
 from enmspring.spring import Spring
-from enmspring.graphs import Stack, BackboneRibose, onlyHB, HBAgent, BB1
+from enmspring.graphs import Stack, BackboneRibose, onlyHB, HBAgent, BB1, BB2
 from enmspring.na_seq import sequences
 from enmspring.miscell import check_dir_exist_and_make
 
@@ -454,6 +454,32 @@ class BB1MeanModeAgent(StackMeanModeAgent):
         self.strand1_benchmark = strand1
         self.strand2_benchmark = strand2
 
+class BB2MeanModeAgent(StackMeanModeAgent):
+    def set_f_laplacian(self):
+        return path.join(self.npy_folder, 'laplacian_BB2.npy')
+
+    def set_f_std_laplacian(self):
+        return path.join(self.npy_folder, 'laplacian_BB2.std.npy')
+
+    def set_f_b0_mean_std(self):
+        return path.join(self.npy_folder, 'b0_BB2.mean.npy'), path.join(self.npy_folder, 'b0_BB2.std.npy')
+    
+    def get_all_small_agents(self):
+        d_smallagents = dict()
+        for time1, time2 in self.time_list:
+            time_label = f'{time1}_{time2}'
+            d_smallagents[(time1,time2)] = BB2Graph(self.host, self.rootfolder, time_label)
+        return d_smallagents
+
+    def set_benchmark_array(self):
+        idx_start_strand2 = self.d_idx['B1']
+        strand1 = np.zeros(self.n_node)
+        strand2 = np.zeros(self.n_node)
+        strand1[:idx_start_strand2] = 1.
+        strand2[idx_start_strand2:] = 1.
+        self.strand1_benchmark = strand1
+        self.strand2_benchmark = strand2
+
 class HBMeanModeAgent(StackMeanModeAgent):
     def set_f_laplacian(self):
         return path.join(self.npy_folder, 'laplacian_hb.npy')
@@ -498,6 +524,20 @@ class ProminentModesBB1(ProminentModes):
         
     def set_f_mean_r_alpha_array(self):
         return path.join(self.npy_folder, 'mean_r_alpha_BB1.npy')
+
+class ProminentModesBB2(ProminentModes):
+    def initialize_s_agent(self):
+        self.s_agent = BB2MeanModeAgent(self.host, self.rootfolder, self.interval_time)
+        self.s_agent.load_mean_mode_laplacian_from_npy()
+        self.s_agent.eigen_decompose()
+
+        self.mean_modes_w = self.s_agent.w # eigenvalues
+        self.mean_modes_v = self.s_agent.v # eigenvectors
+        self.time_list = self.s_agent.time_list
+        self.d_smallagents = self.s_agent.d_smallagents
+        
+    def set_f_mean_r_alpha_array(self):
+        return path.join(self.npy_folder, 'mean_r_alpha_BB2.npy')
 
 class StackGraph(Stack):
     def __init__(self, host, rootfolder, time_label):
@@ -615,6 +655,43 @@ class BackboneGraph(BackboneRibose):
         self.d_seq = {'STRAND1': sequences[host]['guide'], 'STRAND2': sequences[host]['target']}
 
 class BB1Graph(BB1):
+    def __init__(self, host, rootfolder, time_label):
+        self.host = host
+        self.rootfolder = rootfolder
+        self.time_label = time_label
+
+        self.host_folder = path.join(rootfolder, host)
+        self.na_folder = path.join(self.host_folder, self.type_na, time_label)
+        self.input_folder = path.join(self.na_folder, 'input')
+
+        self.spring_obj = Spring(self.rootfolder, self.host, self.type_na, self.n_bp, time_label)
+        self.df_all_k = self.spring_obj.read_k_b0_pairtype_df_given_cutoff(self.cutoff)
+
+        self.crd = path.join(self.input_folder, '{0}.nohydrogen.avg.crd'.format(self.type_na))
+        self.npt4_crd = path.join(self.input_folder, '{0}.nohydrogen.crd'.format(self.type_na))
+        self.u = MDAnalysis.Universe(self.crd, self.crd)
+        self.map, self.inverse_map, self.residues_map, self.atomid_map,\
+        self.atomid_map_inverse, self.atomname_map, self.strandid_map,\
+        self.resid_map, self.mass_map = self.build_map()
+
+        self.node_list = None
+        self.d_idx = None
+        self.n_node = None
+        self.adjacency_mat = None
+        self.degree_mat = None
+        self.laplacian_mat = None
+        self.b0_mat = None
+
+        self.w = None  # Eigenvalue array
+        self.v = None  # Eigenvector matrix, the i-th column is the i-th eigenvector
+        self.strand1_array = list() # 0: STRAND1, 1: STRAND2
+        self.strand2_array = list() #
+        self.strand1_benchmark = None
+        self.strand2_benchmark = None
+
+        self.d_seq = {'STRAND1': sequences[host]['guide'], 'STRAND2': sequences[host]['target']}
+
+class BB2Graph(BB2):
     def __init__(self, host, rootfolder, time_label):
         self.host = host
         self.rootfolder = rootfolder
