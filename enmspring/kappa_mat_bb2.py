@@ -76,8 +76,9 @@ class MeanKappaStrandBB2(MeanKappaStrand):
             d_kappa[resid] = KappaBB2(self.host, self.strand_id, resid, self.s_agent, self.map_idx_from_strand_resid_atomname, self.seq)
         return d_kappa
 
-"""
-class MeanKappaStrandHetreoBB1(MeanKappaStrandBB1):
+class MeanKappaStrandHetreoBB1(MeanKappaStrandBB2):
+    d_basetype_jk = {'atat_21mer': {'A': 'T', 'T': 'A'},
+                     'gcgc_21mer': {'G': 'C', 'C': 'G'}}
     strand_id_lst = ['STRAND1', 'STRAND2']
     d_resid_lst = {'atat_21mer': {'A': {'STRAND1': list(range(5, 18, 2)), 'STRAND2': list(range(4, 19, 2))},
                                   'T': {'STRAND1': list(range(4, 19, 2)), 'STRAND2': list(range(5, 18, 2))}},
@@ -102,21 +103,15 @@ class MeanKappaStrandHetreoBB1(MeanKappaStrandBB1):
 
         self.d_seq = {'STRAND1': sequences[host]['guide'], 'STRAND2': sequences[host]['target']}
 
-        self.basetype_j = self.set_basetype_j()
+        self.basetype_j = self.d_basetype_jk[self.host][self.basetype_i]
+        self.basetype_k = self.d_basetype_jk[self.host][self.basetype_i]
 
         self.d_kappa = self.get_d_kappa()
 
-        self.atomlst_i, self.atomlst_j = self.get_atomlst()
+        self.atomlst_i = KappaBB2.backbone_atomlist + KappaBB2.ribose_atomlist
+        self.atomlst_j = KappaBB2.backbone_atomlist + KappaBB2.ribose_atomlist
         self.n_atom_i = len(self.atomlst_i)
         self.n_atom_j = len(self.atomlst_j)
-
-    def set_basetype_j(self):
-        return self.basetype_i
-
-    def get_atomlst(self):
-        atomlst_i = KappaBB1.d_atomlist[self.basetype_i]
-        atomlst_j = KappaBB1.d_atomlist[self.basetype_j]
-        return atomlst_i, atomlst_j
 
     def get_d_kappa(self):
         d_kappa = {strand_id: dict() for strand_id in self.strand_id_lst}
@@ -124,7 +119,7 @@ class MeanKappaStrandHetreoBB1(MeanKappaStrandBB1):
             resid_lst = self.d_resid_lst[self.host][self.basetype_i][strand_id]
             seq = self.d_seq[strand_id]
             for resid in resid_lst:
-                d_kappa[strand_id][resid] = KappaBB1(self.host, strand_id, resid, self.s_agent, self.map_idx_from_strand_resid_atomname, seq)
+                d_kappa[strand_id][resid] = KappaBB2(self.host, strand_id, resid, self.s_agent, self.map_idx_from_strand_resid_atomname, seq)
         return d_kappa
 
     def get_mean_data_mat_j(self, K_mat):
@@ -133,11 +128,23 @@ class MeanKappaStrandHetreoBB1(MeanKappaStrandBB1):
             resid_lst = self.d_resid_lst[self.host][self.basetype_i][strand_id]
             for resid in resid_lst:
                 d_data_mat_j[strand_id][resid] = self.d_kappa[strand_id][resid].get_data_mat_j(K_mat)
-        mean_data_mat_j = np.zeros((self.n_atom_i, self.n_atom_i))
-        for row_id in range(self.n_atom_i):
-            for col_id in range(self.n_atom_i):
+        mean_data_mat_j = np.zeros(d_data_mat_j[strand_id][resid].shape)
+        for row_id in range(d_data_mat_j[strand_id][resid].shape[0]):
+            for col_id in range(d_data_mat_j[strand_id][resid].shape[1]):
                 mean_data_mat_j[row_id, col_id] = self.get_mean_matrix_element(d_data_mat_j, row_id, col_id)
         return mean_data_mat_j
+
+    def get_mean_data_mat_k(self, K_mat):
+        d_data_mat_k = {strand_id: dict() for strand_id in self.strand_id_lst}
+        for strand_id in self.strand_id_lst:
+            resid_lst = self.d_resid_lst[self.host][self.basetype_i][strand_id]
+            for resid in resid_lst:
+                d_data_mat_k[strand_id][resid] = self.d_kappa[strand_id][resid].get_data_mat_k(K_mat)
+        mean_data_mat_k = np.zeros(d_data_mat_k[strand_id][resid].shape)
+        for row_id in range(d_data_mat_k[strand_id][resid].shape[0]):
+            for col_id in range(d_data_mat_k[strand_id][resid].shape[1]):
+                mean_data_mat_k[row_id, col_id] = self.get_mean_matrix_element(d_data_mat_k, row_id, col_id)
+        return mean_data_mat_k
 
     def get_mean_matrix_element(self, d_data_mat, row_id, col_id):
         n_mat = len(self.d_resid_lst[self.host][self.basetype_i]['STRAND1']) + len(self.d_resid_lst[self.host][self.basetype_i]['STRAND2'])
@@ -149,4 +156,3 @@ class MeanKappaStrandHetreoBB1(MeanKappaStrandBB1):
                 temp_array[idx] = d_data_mat[strand_id][resid][row_id, col_id]
                 idx += 1
         return temp_array.mean()
-"""
