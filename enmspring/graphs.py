@@ -804,7 +804,7 @@ class BB2(GraphAgent):
         df_pp3 = get_df_by_filter_PP(self.df_all_k, 'PP3')
         df_pp_lst = [df_pp2_filter_angle, df_pp3]
         df_pp_r_rb = pd.concat(df_pp_lst)
-        df_pp_r_rb = get_df_not_same_resid(df_pp_r_rb)
+        #df_pp_r_rb = get_df_not_same_resid(df_pp_r_rb)
         criteria = 1e-1
         df_pp_r_rb = df_pp_r_rb[df_pp_r_rb['k']>criteria]
         return df_pp_r_rb
